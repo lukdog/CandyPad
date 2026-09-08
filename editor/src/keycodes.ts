@@ -1,6 +1,7 @@
 // Keycode index over the vendored QMK constants table, plus the hand-written
 // tables for things the constants file cannot enumerate.
 import raw from './data/keycodes-0.0.7.json';
+import { LEGACY_ALIASES } from './data/legacy-aliases';
 import type { Keycode, KeycodeIndex } from './types';
 
 /** Sentinels QMK uses in its alias diffs; never real keycode names. */
@@ -114,6 +115,12 @@ export function buildIndex(table: RawTable = raw as RawTable): KeycodeIndex {
       if (SENTINELS.has(alias)) continue;
       if (!byName.has(alias)) byName.set(alias, kc);
     }
+  }
+  // Legacy #defines still compile on 0.28.x, so resolve them to the real entry — that also
+  // gives them a `group`, so feature coherence works without falling back to name shape.
+  for (const [legacy, canonical] of Object.entries(LEGACY_ALIASES)) {
+    const kc = byName.get(canonical);
+    if (kc && !byName.has(legacy)) byName.set(legacy, kc);
   }
   for (const [alias, canonical] of Object.entries(EXTRA_ALIASES)) {
     const kc = byName.get(canonical);

@@ -113,7 +113,12 @@ export function parse(src: string): ParseResult {
 
     const sig = PARAM_FNS[fn];
     if (!sig) {
-      errors.push({ code: 'E_UNKNOWN_FN', message: `unknown keycode function ${fn}()` });
+      // A warning, not an error: TD(), community-module and custom functions are legitimate
+      // and we cannot enumerate them, exactly as for unknown bare keycodes.
+      errors.push({
+        code: 'W_UNKNOWN_FN',
+        message: `unknown keycode function ${fn}(); it will fail at the C compiler unless defined in the keymap sources`,
+      });
       return rawCall();
     }
     if (args.length !== sig.arity) {

@@ -112,7 +112,10 @@ export function validate(
     const at = describe(target);
     const { expr, errors } = parse(raw);
 
-    for (const e of errors) add('error', e.code, `${at}: ${e.message} — "${raw}"`, where);
+    // Severity comes from the code prefix, so expr.ts owns which parse findings are fatal.
+    for (const e of errors) {
+      add(e.code.startsWith('W_') ? 'warning' : 'error', e.code, `${at}: ${e.message} — "${raw}"`, where);
+    }
 
     for (const layerToken of layerTargets(expr)) {
       if (/^\d+$/.test(layerToken)) {
@@ -202,10 +205,12 @@ export function validate(
   if (opts.rulesMk !== undefined) {
     opts.rulesMk.split('\n').forEach((line, i) => {
       if (/^\s*[A-Z0-9_]+_ENABLE\s*=/.test(line)) {
+        // LTO is the one flag the schema rejects under features; it lives at config.build.lto.
+        const home = /^\s*LTO_ENABLE\s*=/.test(line) ? 'keymap.json config.build.lto' : 'keymap.json config.features';
         add(
           'error',
           'E_RULES_MK_FEATURE_FLAG',
-          `rules.mk:${i + 1}: "${line.trim()}" — feature flags belong in keymap.json config.features; ` +
+          `rules.mk:${i + 1}: "${line.trim()}" — belongs in ${home}; ` +
             'the generated rules are included after this file, so this line is silently overridden and merely lies about the build',
         );
       }
