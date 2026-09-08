@@ -13,30 +13,68 @@
     },
     "layers": [
         [
-                        "KC_MUTE", "MO(1)",
-            "KC_NUM",   "KC_PSLS", "KC_PAST", "KC_PMNS",
-            "KC_P7",    "KC_P8",   "KC_P9",   "KC_PPLS",
-            "KC_P4",    "KC_P5",   "KC_P6",
-            "KC_P1",    "KC_P2",   "KC_P3",   "KC_PENT",
-                        "KC_P0",   "KC_PDOT"
+            "KC_MUTE",
+            "MO(1)",
+            "KC_NUM",
+            "KC_PSLS",
+            "KC_PAST",
+            "KC_PMNS",
+            "KC_P7",
+            "KC_P8",
+            "KC_P9",
+            "KC_PPLS",
+            "KC_P4",
+            "KC_P5",
+            "KC_P6",
+            "KC_P1",
+            "KC_P2",
+            "KC_P3",
+            "KC_PENT",
+            "KC_P0",
+            "KC_PDOT"
         ],
         [
-                        "KC_TRNS", "KC_TRNS",
-            "KC_TRNS",  "LCTL(KC_LEFT)", "LCTL(KC_RGHT)", "LCTL(LSFT(KC_TAB))",
-            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
-            "KC_TRNS",  "KC_TRNS", "KC_TRNS",
-            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "QK_BOOT",
-                        "KC_TRNS", "KC_TRNS"
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "LCTL(KC_LEFT)",
+            "LCTL(KC_RGHT)",
+            "LCTL(LSFT(KC_TAB))",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "KC_TRNS",
+            "QK_BOOT",
+            "KC_TRNS",
+            "KC_TRNS"
         ]
     ],
     "encoders": [
         [
-            {"ccw": "KC_VOLD", "cw": "KC_VOLU"},
-            {"ccw": "MS_WHLU", "cw": "MS_WHLD"}
+            {
+                "ccw": "KC_VOLD",
+                "cw": "KC_VOLU"
+            },
+            {
+                "ccw": "MS_WHLU",
+                "cw": "MS_WHLD"
+            }
         ],
         [
-            {"ccw": "KC_TRNS", "cw": "KC_TRNS"},
-            {"ccw": "KC_TRNS", "cw": "KC_TRNS"}
+            {
+                "ccw": "KC_TRNS",
+                "cw": "KC_TRNS"
+            },
+            {
+                "ccw": "KC_TRNS",
+                "cw": "KC_TRNS"
+            }
         ]
     ]
 }
