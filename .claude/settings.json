@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run download:*)",
+      "Bash(gh api repos/lukdog/CandyPad:*)",
+      "Bash(gh api repos/binepad-global/:*)",
+      "Bash(gh api repos/qmk/:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc --noEmit:*)",
+      "Bash(npx vite build:*)",
+      "Bash(./editor/node_modules/.bin/tsx editor/scripts/validate.ts:*)",
+      "Bash(curl -sL https://raw.githubusercontent.com/binepad-global/:*)",
+      "Bash(curl -sL https://keyboards.qmk.fm/:*)"
+    ]
+  }
+}
