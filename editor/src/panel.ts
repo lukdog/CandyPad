@@ -97,7 +97,16 @@ export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: st
     rawErr.classList.toggle('has-warn', errors.length > 0 && errors.every((e) => e.code.startsWith('W_')));
   }
 
-  raw.addEventListener('input', () => commit(raw.value, false));
+  // Re-peel on every keystroke: without this, typing a keycode by hand and then ticking a
+  // modifier would wrap the *previous* base instead of what was just typed.
+  raw.addEventListener('input', () => {
+    const peeled = peel(raw.value);
+    base = peeled.base || 'KC_NO';
+    mods = peeled.mods;
+    side = peeled.side;
+    syncMods();
+    commit(raw.value, false);
+  });
 
   function renderCurrent(value: string) {
     currentBox.textContent = '';

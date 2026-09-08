@@ -284,6 +284,17 @@ onDropFile(document.body, (loaded) => {
   refresh();
 });
 
+// Pasting a share link into an already-open tab only changes the fragment, which does not
+// re-run loadInitial - the link would be silently ignored. Reload so it is actually honoured.
+addEventListener('hashchange', () => {
+  if (!new URLSearchParams(location.hash.replace(/^#/, '')).has('km')) return;
+  if (confirm('Open the shared keymap from this link? Unsaved changes in this tab will be lost.')) {
+    location.reload();
+  } else {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+});
+
 loadInitial(bundled)
   .then((loaded) => {
     km = loaded.km;
