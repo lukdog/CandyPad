@@ -1,7 +1,7 @@
 // Everything that leaves or enters the page: shared links, downloads, the localStorage
 // draft, and File System Access writes into a local clone of the repo.
 import type { KeymapJson } from './types';
-import { applyOledBlock, parseOledBlock } from './oled';
+import { applyOledBlock, applyOledC, applyRulesMk, parseOledBlock, parseOledC } from './oled';
 
 declare const __COMMIT__: string;
 
@@ -10,7 +10,7 @@ export interface OledSettings {
   timeout: number;
 }
 
-export type LoadSource = 'bundled' | 'shared-link' | 'local-file' | 'autosave';
+export type LoadSource = 'bundled' | 'shared-link' | 'local-file' | 'autosave' | 'linked-repo';
 
 export interface Loaded {
   km: KeymapJson;
@@ -18,7 +18,20 @@ export interface Loaded {
   label: string;
   /** Read back from the linked clone's config.h; undefined when no repo is linked. */
   oled?: OledSettings;
+  /** Body of candypad_render_default_user() found in the clone's oled.c; '' when there is none. */
+  code: string;
 }
+
+/** Everything the editor owns inside the linked clone, as it is on disk right now. */
+export interface RepoState {
+  km: KeymapJson;
+  oled: OledSettings;
+  code: string;
+  /** keymap.json's mtime, so a newer autosaved draft can win at cold start. */
+  modifiedAt: number;
+}
+
+export const LINKED_REPO_LABEL = 'linked repo — the live keymap.json in your clone';
 
 const DRAFT_KEY = 'candypad.draft.v1';
 const REPO_PATH = ['keyboards', 'binepad', 'candypad', 'keymaps', 'candypad_keymap'];
@@ -114,40 +127,57 @@ function asKeymap(v: unknown): KeymapJson | null {
 
 // ------------------------------------------------------------------ loading
 
+/** Resolution order: shared link, then a draft newer than the clone, then the clone, then bundled. */
 export async function loadInitial(bundled: KeymapJson): Promise<Loaded> {
   const sha = __COMMIT__.slice(0, 7);
-  const oled = await readOled();
+  const repo = await readFromRepo();
+  // Even when the content comes from elsewhere, the firmware settings shown must be the
+  // clone's real ones — otherwise the next save silently overwrites them with our defaults.
+  const rest = { ...(repo ? { oled: repo.oled } : {}), code: repo?.code ?? '' };
+
   const payload = new URLSearchParams(location.hash.replace(/^#/, '')).get('km');
   if (payload !== null) {
     const km = decodeShared(payload);
     // Consume the fragment either way: without this, editing a shared link and then
     // refreshing would replay the link and shadow the edits the draft just saved.
     history.replaceState(null, '', location.pathname + location.search);
-    if (km) return { km, source: 'shared-link', label: 'from a shared link — not saved anywhere yet', oled };
-    return { km: bundled, source: 'bundled', label: `link could not be read — bundled snapshot @ ${sha}`, oled };
+    if (km) return { km, source: 'shared-link', label: 'from a shared link — not saved anywhere yet', ...rest };
+    return { km: bundled, source: 'bundled', label: `link could not be read — bundled snapshot @ ${sha}`, ...rest };
   }
 
   const draft = readDraft();
-  if (draft && serialize(draft.km) !== serialize(bundled)) {
+  if (draft && serialize(draft.km) !== serialize(bundled) && (!repo || draft.savedAt > repo.modifiedAt)) {
+    const newer = repo ? ', newer than the file in your linked clone' : '';
     const label =
       draft.commit === __COMMIT__
-        ? `restored draft — unsaved local edits from ${ago(draft.savedAt)}`
+        ? `restored draft — unsaved local edits from ${ago(draft.savedAt)}${newer}`
         : `restored draft from ${ago(draft.savedAt)} — the bundled keymap has changed since (now @ ${sha})`;
-    return { km: draft.km, source: 'autosave', label, oled };
+    return { km: draft.km, source: 'autosave', label, ...rest };
   }
 
-  return { km: bundled, source: 'bundled', label: `bundled snapshot @ ${sha}`, oled };
+  if (repo) return { km: repo.km, source: 'linked-repo', label: LINKED_REPO_LABEL, ...rest };
+
+  return { km: bundled, source: 'bundled', label: `bundled snapshot @ ${sha}`, ...rest };
 }
 
-/** config.h from the linked clone. Query-only: prompting needs a gesture we do not have on load. */
-async function readOled(): Promise<OledSettings | undefined> {
+/** The linked clone as it is on disk, or null when nothing is linked, permission is not
+ *  granted, or keymap.json is missing or unreadable. Query-only: prompting needs a gesture. */
+export async function readFromRepo(): Promise<RepoState | null> {
   try {
     const root = await idbGet();
-    if (!root || (await root.queryPermission({ mode: 'read' })) !== 'granted') return undefined;
-    const text = await readFile(await keymapDir(root), 'config.h');
-    return text === null ? undefined : parseOledBlock(text);
+    if (!root || (await root.queryPermission({ mode: 'read' })) !== 'granted') return null;
+    const dir = await keymapDir(root);
+    const file = await (await dir.getFileHandle('keymap.json')).getFile();
+    const km = parseKeymap(await file.text());
+    if (!km) return null;
+    return {
+      km,
+      oled: parseOledBlock((await readFile(dir, 'config.h')) ?? ''),
+      code: parseOledC((await readFile(dir, 'oled.c')) ?? ''),
+      modifiedAt: file.lastModified,
+    };
   } catch {
-    return undefined;
+    return null;
   }
 }
 
@@ -249,7 +279,7 @@ export async function repoLinked(): Promise<boolean> {
   }
 }
 
-export async function writeToRepo(km: KeymapJson, oled: OledSettings): Promise<void> {
+export async function writeToRepo(km: KeymapJson, oled: OledSettings, code: string): Promise<void> {
   const root = await idbGet();
   if (!root) throw new Error('No repository folder is linked yet.');
   if ((await root.requestPermission({ mode: 'readwrite' })) !== 'granted') {
@@ -258,6 +288,14 @@ export async function writeToRepo(km: KeymapJson, oled: OledSettings): Promise<v
   const dir = await keymapDir(root);
   await writeFile(dir, 'keymap.json', serialize(km));
   await writeFile(dir, 'config.h', applyOledBlock((await readFile(dir, 'config.h')) ?? '', oled));
+
+  // An empty body would leave a function returning nothing behind, so drop the file instead.
+  const body = code.trim();
+  if (body === '') await removeFile(dir, 'oled.c');
+  else await writeFile(dir, 'oled.c', applyOledC((await readFile(dir, 'oled.c')) ?? '', code));
+  const rules = applyRulesMk(await readFile(dir, 'rules.mk'), body !== '');
+  if (rules === null) await removeFile(dir, 'rules.mk');
+  else await writeFile(dir, 'rules.mk', rules);
 }
 
 async function keymapDir(root: FileSystemDirectoryHandle): Promise<FileSystemDirectoryHandle> {
@@ -270,6 +308,14 @@ async function writeFile(dir: FileSystemDirectoryHandle, name: string, text: str
   const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
   await w.write(text);
   await w.close();
+}
+
+async function removeFile(dir: FileSystemDirectoryHandle, name: string): Promise<void> {
+  try {
+    await dir.removeEntry(name);
+  } catch {
+    // Already absent, which is the state we wanted.
+  }
 }
 
 async function readFile(dir: FileSystemDirectoryHandle, name: string): Promise<string | null> {

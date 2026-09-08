@@ -2,10 +2,12 @@
 import board from '@board';
 import bundledKeymap from '@keymap';
 import { buildIndex } from './keycodes';
+import { checkOledC } from './oled';
 import { createPanel } from './panel';
 import {
-  autosave, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
-  pickRepoDir, repoLinked, shareLink, writeToRepo, type OledSettings,
+  LINKED_REPO_LABEL, autosave, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
+  pickRepoDir, readFromRepo, repoLinked, shareLink, writeToRepo,
+  type LoadSource, type OledSettings,
 } from './persist';
 import { createEncoderLegend, createLayerTabs, createPad } from './render';
 import type { Issue, KeyboardJson, KeymapJson, Target } from './types';
@@ -27,6 +29,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 // ── state ────────────────────────────────────────────────
 let km: KeymapJson = structuredClone(bundled);
 let oled: OledSettings = { brightness: 128, timeout: 120000 };
+let oledCode = '';
 let layer = 0;
 let selected: Target | null = null;
 let issues: Issue[] = [];
@@ -135,6 +138,12 @@ const tabs = createLayerTabs({
 });
 
 const sourceBadge = el('span', 'badge', 'loading…');
+
+function setSource(source: LoadSource, label: string) {
+  sourceBadge.textContent = label;
+  sourceBadge.dataset['source'] = source;
+}
+
 const statusLine = document.querySelector<HTMLElement>('#status')!;
 
 function status(text: string, kind: 'ok' | 'err' = 'ok') {
@@ -214,13 +223,38 @@ async function save(force = false) {
   }
   try {
     if (!(await repoLinked()) && !(await pickRepoDir())) return;
-    await writeToRepo(km, oled);
+    await writeToRepo(km, oled, oledCode);
     saveAnyway.hidden = true;
-    status('written to keymap.json + config.h');
+    setSource('linked-repo', LINKED_REPO_LABEL); // what is on screen now is what is on disk
+    const warn = oledCode.trim() ? checkOledC(oledCode) : null;
+    status(warn ? `saved — but the OLED code looks off: ${warn}` : `written to ${writtenFiles()}`, warn ? 'err' : 'ok');
   } catch (e) {
     // writeToRepo throws Error with a message meant for the user; String(e) would prefix "Error:".
     status(`save failed: ${e instanceof Error ? e.message : String(e)}`, 'err');
   }
+}
+
+function writtenFiles(): string {
+  return oledCode.trim() ? 'keymap.json + config.h + oled.c + rules.mk' : 'keymap.json + config.h';
+}
+
+/** Linking a clone must show that clone, not the snapshot the page booted with. */
+async function adoptRepo(): Promise<void> {
+  const repo = await readFromRepo();
+  if (!repo) {
+    status('repo linked, but its keymap.json could not be read', 'err');
+    return;
+  }
+  snapshot(''); // before anything is replaced: undo must be able to bring the old work back
+  km = repo.km;
+  oled = repo.oled;
+  oledCode = repo.code;
+  layer = 0;
+  selected = null;
+  panel.close();
+  setSource('linked-repo', LINKED_REPO_LABEL);
+  refresh(); // re-validates: the clone's file may well be broken, and then we say so
+  status('loaded keymap.json, config.h and oled.c from the linked clone');
 }
 
 const saveAnyway = button('Save anyway', () => void save(true), 'btn danger');
@@ -281,16 +315,53 @@ const oledFields = [
   numberField('Brightness (0–255)', 0, 255, () => oled.brightness, (n) => (oled = { ...oled, brightness: n })),
   numberField('Timeout (ms)', 0, 3_600_000, () => oled.timeout, (n) => (oled = { ...oled, timeout: n })),
 ];
+const codeArea = el('textarea', 'code');
+codeArea.rows = 10;
+codeArea.spellcheck = false;
+codeArea.placeholder = [
+  'oled_set_cursor(0, 0);',
+  'oled_write_ln("hello", false);',
+  'return false;  // false: the board keeps drawing its dashboard on rows 1 and 3',
+].join('\n');
+const codeWarn = el('p', 'hint code-warn');
+
+function syncCodeWarning() {
+  const warn = codeArea.value.trim() ? checkOledC(codeArea.value) : null;
+  codeWarn.textContent = warn ? `Looks unbalanced: ${warn}. Saving is still allowed — CI has the real compiler.` : '';
+  codeWarn.classList.toggle('is-warn', warn !== null);
+}
+codeArea.addEventListener('input', () => {
+  oledCode = codeArea.value;
+  syncCodeWarning();
+});
+
+const codeBlock = el('div', 'field');
+codeBlock.append(
+  el('span', 'row-label', 'candypad_render_default_user() body'),
+  codeArea,
+  el(
+    'p',
+    'hint',
+    'Written to oled.c, with SRC += oled.c in rules.mk. Return true when you drew everything ' +
+      'yourself, false to let the board draw its layer/encoder dashboard over rows 1 and 3. ' +
+      'Rows 0 and 2 of the 21x4 grid are free. Empty the box to delete both files.',
+  ),
+  codeWarn,
+);
+
 const sheetBody = el('div', 'sheet-body');
 sheetBody.append(
   ...oledFields.map((f) => f.row),
   el('p', 'hint', 'Written to config.h as #defines when you save to the repo — keymap.json cannot carry them.'),
+  codeBlock,
 );
 sheet.append(sheetHead, sheetBody);
 
 // Sync on open, not at build time: loadInitial may replace the defaults with the linked clone's values.
 const settingsBtn = button('Settings', () => {
   for (const f of oledFields) f.sync();
+  codeArea.value = oledCode;
+  syncCodeWarning();
   sheet.showModal();
 }, 'btn ghost');
 
@@ -298,7 +369,10 @@ const repoGroup = el('div', 'tb-group');
 if (fsaAvailable()) {
   repoGroup.append(
     settingsBtn,
-    button('Link repo…', async () => status((await pickRepoDir()) ? 'repo linked' : 'not linked', 'ok')),
+    button('Link repo…', async () => {
+      if (await pickRepoDir()) await adoptRepo();
+      else status('not linked', 'err');
+    }),
     button('Save to repo', () => void save(), 'btn primary'),
     saveAnyway,
   );
@@ -338,7 +412,7 @@ onDropFile(document.body, (loaded) => {
   snapshot('');
   km = loaded;
   layer = 0;
-  sourceBadge.textContent = 'local file (dropped)';
+  setSource('local-file', 'local file (dropped) — not saved anywhere yet');
   refresh();
 });
 
@@ -360,12 +434,12 @@ loadInitial(bundled)
     // Show what config.h actually holds, not our defaults, or the panel would quietly
     // offer to overwrite the linked clone's real values with 128/60000.
     if (loaded.oled) oled = loaded.oled;
-    sourceBadge.textContent = loaded.label;
-    sourceBadge.dataset['source'] = loaded.source;
+    oledCode = loaded.code;
+    setSource(loaded.source, loaded.label);
     refresh();
   })
   .catch((e) => {
-    sourceBadge.textContent = `bundled snapshot @ ${__COMMIT__}`;
+    setSource('bundled', `bundled snapshot @ ${__COMMIT__}`);
     status(`could not restore: ${String(e)}`, 'err');
     refresh();
   });
