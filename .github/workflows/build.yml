@@ -10,11 +10,21 @@ on:
       - 'keyboards/**'
       - 'qmk.json'
       - '.github/workflows/build.yml'
+      # The validate job gates the build, so a validator change must re-run both.
+      - 'editor/src/**'
+      - 'editor/scripts/**'
+      - 'editor/fixtures/**'
+      - 'editor/package-lock.json'
   pull_request:
     paths:
       - 'keyboards/**'
       - 'qmk.json'
       - '.github/workflows/build.yml'
+      # The validate job gates the build, so a validator change must re-run both.
+      - 'editor/src/**'
+      - 'editor/scripts/**'
+      - 'editor/fixtures/**'
+      - 'editor/package-lock.json'
   workflow_dispatch:
     inputs:
       userspace_ref:
@@ -43,33 +53,67 @@ jobs:
   validate:
     name: Validate keymap.json
     runs-on: ubuntu-latest
-    # TODO(ed): remove continue-on-error once editor/scripts/validate.ts lands.
-    continue-on-error: true
+    timeout-minutes: 10
+    env:
+      # Geometry lives under editor/ so QMK's overlay_dir cannot shadow the pinned fork's copy.
+      BOARD_JSON: editor/src/data/keyboard.json
+      # npx searches node_modules upward from cwd, so from the repo root it would miss
+      # editor/node_modules and fetch an unpinned tsx. Use the one npm ci installed.
+      TSX: ./editor/node_modules/.bin/tsx
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
 
-      # TODO(ed): frozen contract for the editor CLI:
-      #   npx tsx editor/scripts/validate.ts <keymap.json> --keyboard <keyboard.json> [--allow-unreachable]
-      #   exit 0 = clean, exit 1 = any error.
-      # The guard below keeps this job green until that script exists.
+      - run: npm ci
+        working-directory: editor
+
+      - run: npx tsc --noEmit
+        working-directory: editor
+
+      # Our vendored geometry must stay identical to the board we actually build against,
+      # or the editor would render a layout the firmware does not have.
+      - name: Assert vendored keyboard.json matches the pinned fork
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/upstream-keyboard.json \
+            "https://raw.githubusercontent.com/${QMK_FORK}/${QMK_REF}/keyboards/binepad/candypad/keyboard.json"
+          if ! diff -u /tmp/upstream-keyboard.json "$BOARD_JSON"; then
+            echo "::error::$BOARD_JSON has drifted from ${QMK_FORK}@${QMK_REF}"
+            exit 1
+          fi
+          echo "geometry matches upstream"
+
       - name: Validate keymaps
         run: |
           set -euo pipefail
-          if [ ! -f editor/scripts/validate.ts ]; then
-            echo "::notice::editor/scripts/validate.ts not present yet - validation skipped."
-            exit 0
-          fi
           rc=0
           for km in keyboards/*/*/keymaps/*/keymap.json; do
-            kb_dir="$(dirname "$(dirname "$(dirname "$km")")")"
             echo "--- $km"
-            npx --yes tsx editor/scripts/validate.ts "$km" --keyboard "$kb_dir/keyboard.json" || rc=1
+            "$TSX" editor/scripts/validate.ts "$km" --keyboard "$BOARD_JSON" || rc=1
           done
           exit $rc
+
+      # A validator never observed failing is a validator that does not work. This fixture
+      # reproduces the firmware the vendor configurator shipped; the CLI must reject it.
+      - name: Assert the validator still rejects the known-bad fixture
+        run: |
+          set -euo pipefail
+          if "$TSX" editor/scripts/validate.ts editor/fixtures/broken.keymap.json \
+               --keyboard "$BOARD_JSON" > /tmp/broken.log 2>&1; then
+            echo "::error::validator accepted the known-bad fixture - the checks have regressed"
+            cat /tmp/broken.log
+            exit 1
+          fi
+          for code in E_LAYER_UNREACHABLE E_FEATURE_DISABLED E_FEATURE_NO_HARDWARE; do
+            grep -q "$code" /tmp/broken.log || {
+              echo "::error::expected $code in the bad-fixture output"; cat /tmp/broken.log; exit 1; }
+          done
+          echo "validator correctly rejected the known-bad fixture"
 
   build:
     name: Build CandyPad firmware
