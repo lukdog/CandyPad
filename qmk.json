@@ -1,0 +1,9 @@
+{
+    "userspace_version": "1.0",
+    "build_targets": [
+        [
+            "binepad/candypad",
+            "candypad_keymap"
+        ]
+    ]
+}

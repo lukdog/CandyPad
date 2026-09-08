@@ -1,0 +1,14 @@
+# QMK build output
+.build/
+*.bin
+*.hex
+*.uf2
+*.elf
+*.map
+
+# Editor (Vite)
+node_modules/
+editor/dist/
+
+# macOS
+.DS_Store
