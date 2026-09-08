@@ -130,7 +130,7 @@ jobs:
           set -euo pipefail
           qmk config user.qmk_home="$QMK_HOME"
           qmk config user.overlay_dir="$GITHUB_WORKSPACE"
-          qmk config
+          qmk config || true   # `qmk config` with no args exits 1 on this CLI version
           echo "--- bootloader / mcu as QMK resolves them (used by README flashing docs) ---"
           qmk info -kb binepad/candypad -f json > "$RUNNER_TEMP/kbinfo.json" || true
           jq '{bootloader, processor, board, bootloader_instructions}' "$RUNNER_TEMP/kbinfo.json" || true
