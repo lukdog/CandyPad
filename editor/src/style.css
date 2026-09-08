@@ -519,10 +519,12 @@ body {
 .chip:has(:focus-visible), .seg-item:has(:focus-visible) { outline: 2px solid var(--lime); outline-offset: 2px; }
 
 /* ── category tabs + keycode grid ────────────────────── */
+/* Wrap rather than scroll: 11 categories do not fit one row at this panel width, and a
+   horizontal scrollbar hid six of them behind a gesture nobody thinks to try. */
 .cat-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
   padding-bottom: 6px;
 }
 .cat-tab {
@@ -590,16 +592,16 @@ body {
 .builder[hidden] { display: none; }
 
 /* Subtle scrollbars: the picker scrolls inside the panel, so the default bars shout. */
-.kc-list, .cat-tabs, .panel-body {
+.kc-list, .panel-body {
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 16%) transparent;
 }
-.kc-list::-webkit-scrollbar, .cat-tabs::-webkit-scrollbar, .panel-body::-webkit-scrollbar { width: 8px; height: 6px; }
-.kc-list::-webkit-scrollbar-thumb, .cat-tabs::-webkit-scrollbar-thumb, .panel-body::-webkit-scrollbar-thumb {
+.kc-list::-webkit-scrollbar, .panel-body::-webkit-scrollbar { width: 8px; height: 6px; }
+.kc-list::-webkit-scrollbar-thumb, .panel-body::-webkit-scrollbar-thumb {
   background: rgb(255 255 255 / 16%);
   border-radius: 999px;
 }
-.kc-list::-webkit-scrollbar-track, .cat-tabs::-webkit-scrollbar-track, .panel-body::-webkit-scrollbar-track { background: transparent; }
+.kc-list::-webkit-scrollbar-track, .panel-body::-webkit-scrollbar-track { background: transparent; }
 
 /* ── settings sheet ──────────────────────────────────── */
 .sheet {
