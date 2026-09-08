@@ -34,6 +34,8 @@ export const SHORT_LABELS: Record<string, string> = {
   KC_AUDIO_MUTE: 'Mute', KC_AUDIO_VOL_UP: 'Vol+', KC_AUDIO_VOL_DOWN: 'Vol-',
   KC_MEDIA_NEXT_TRACK: '⏭', KC_MEDIA_PREV_TRACK: '⏮',
   KC_MEDIA_PLAY_PAUSE: '⏯', KC_MEDIA_STOP: '⏹',
+  KC_MEDIA_FAST_FORWARD: '⏩', KC_MEDIA_REWIND: '⏪',
+  KC_MEDIA_EJECT: '⏏', KC_MEDIA_SELECT: 'Media',
   KC_BRIGHTNESS_UP: '☀+', KC_BRIGHTNESS_DOWN: '☀-',
   KC_SYSTEM_SLEEP: 'Sleep', KC_SYSTEM_WAKE: 'Wake', KC_SYSTEM_POWER: 'Pwr',
   // mouse (mousekey) — canonical QK_MOUSE_* names; KC_BTN3/MS_BTN3 alias onto these
@@ -43,9 +45,12 @@ export const SHORT_LABELS: Record<string, string> = {
   QK_MOUSE_CURSOR_LEFT: 'M←', QK_MOUSE_CURSOR_RIGHT: 'M→',
   QK_MOUSE_WHEEL_UP: 'Wh↑', QK_MOUSE_WHEEL_DOWN: 'Wh↓',
   QK_MOUSE_WHEEL_LEFT: 'Wh←', QK_MOUSE_WHEEL_RIGHT: 'Wh→',
-  // quantum
+  QK_MOUSE_ACCELERATION_0: 'Acc0', QK_MOUSE_ACCELERATION_1: 'Acc1', QK_MOUSE_ACCELERATION_2: 'Acc2',
+  // quantum / magic
   QK_BOOTLOADER: 'BOOT', QK_REBOOT: 'RESET', QK_CLEAR_EEPROM: 'EEclr',
-  QK_DEBUG_TOGGLE: 'Debug',
+  QK_DEBUG_TOGGLE: 'Debug', QK_MAKE: 'Make',
+  QK_MAGIC_TOGGLE_NKRO: 'NKRO', QK_MAGIC_TOGGLE_ALT_GUI: 'Alt⇄Gui',
+  QK_MAGIC_TOGGLE_GUI: 'GuiTog', QK_MAGIC_TOGGLE_CONTROL_CAPS_LOCK: 'Ctl⇄Cap',
 };
 
 /** Cap glyphs for modifier wrappers; deliberately separate from expr.ts's display set. */
