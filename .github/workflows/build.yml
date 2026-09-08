@@ -75,6 +75,7 @@ jobs:
     name: Build CandyPad firmware
     runs-on: ubuntu-latest
     needs: validate
+    timeout-minutes: 25
     steps:
       - name: Checkout userspace
         uses: actions/checkout@v4
@@ -99,9 +100,16 @@ jobs:
           cache-dependency-path: .github/workflows/build.yml
 
       - name: Install ARM toolchain
+        # The runner's unattended-upgrades can hold the dpkg lock; without a
+        # timeout apt just sits there and the job hangs for hours.
+        timeout-minutes: 8
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
+          set -euo pipefail
+          sudo systemctl stop unattended-upgrades 2>/dev/null || true
+          for i in 1 2 3; do
+            sudo apt-get update -qq && break || { echo "apt-get update failed (try $i)"; sleep 5; }
+          done
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
             gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
           arm-none-eabi-gcc --version | head -1
 
