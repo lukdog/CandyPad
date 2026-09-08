@@ -94,6 +94,9 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          # No requirements.txt in this repo; key the pip cache on the workflow,
+          # which is where the qmk version and QMK_REF are pinned.
+          cache-dependency-path: .github/workflows/build.yml
 
       - name: Install ARM toolchain
         run: |
@@ -175,6 +178,7 @@ jobs:
           echo
           echo "===== generated keymap.c (V1 equivalence artifact) ====="
           find "$QMK_HOME/.build" -path '*/src/keymap.c' -print -exec cat {} \;
+          exit 0
 
       - name: Collect firmware
         run: |
