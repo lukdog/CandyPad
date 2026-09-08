@@ -187,9 +187,8 @@ jobs:
           echo "===== redefinition warnings (expect none) ====="
           grep -nE "warning: .* redefined" "$LOG" || echo "(none)"
           echo
-          echo "===== -flto on the command line ====="
-          grep -om1 -- "-flto[^ ]*" "$LOG" | head -5 || echo "(not visible in log)"
-          echo
+          # The compile line is not echoed at this verbosity; the objdump check
+          # below is the authoritative one for -flto.
           echo "===== feature flags mentioned in log ====="
           grep -nE "MOUSEKEY_ENABLE|ENCODER_MAP_ENABLE|LTO_ENABLE" "$LOG" | head -20 || echo "(none in log)"
           echo

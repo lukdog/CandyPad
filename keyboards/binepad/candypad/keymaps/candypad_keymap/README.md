@@ -9,7 +9,10 @@
 validate keycodes, it interpolates the strings verbatim. So `LCTL(KC_LEFT)`,
 `LCTL(LSFT(KC_TAB))` and `LT(1, KC_A)` all work.
 
-Two invariants the build enforces via `STATIC_ASSERT`, and the validator checks first:
+Two invariants the build enforces, and the validator checks first:
 
-- every layer has exactly 19 entries (the `LAYOUT` arity from `keyboard.json`)
-- `encoders` has exactly one entry per layer, each with one object per encoder
+- every layer has exactly 19 entries — the arity of `LAYOUT()`, which comes from
+  upstream's `keyboard.json`. A wrong count is a compile error on the macro call.
+- `encoders` has exactly one entry per layer, each with one object per encoder.
+  This one is a `STATIC_ASSERT` in `quantum/keymap_introspection.c`; the JSON
+  schema does not catch a mismatch, so it fails at compile time instead.
