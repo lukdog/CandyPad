@@ -1,7 +1,7 @@
 // Everything that leaves or enters the page: shared links, downloads, the localStorage
 // draft, and File System Access writes into a local clone of the repo.
 import type { KeymapJson } from './types';
-import { applyOledBlock } from './oled';
+import { applyOledBlock, parseOledBlock } from './oled';
 
 declare const __COMMIT__: string;
 
@@ -16,6 +16,8 @@ export interface Loaded {
   km: KeymapJson;
   source: LoadSource;
   label: string;
+  /** Read back from the linked clone's config.h; undefined when no repo is linked. */
+  oled?: OledSettings;
 }
 
 const DRAFT_KEY = 'candypad.draft.v1';
@@ -114,11 +116,15 @@ function asKeymap(v: unknown): KeymapJson | null {
 
 export async function loadInitial(bundled: KeymapJson): Promise<Loaded> {
   const sha = __COMMIT__.slice(0, 7);
+  const oled = await readOled();
   const payload = new URLSearchParams(location.hash.replace(/^#/, '')).get('km');
   if (payload !== null) {
     const km = decodeShared(payload);
-    if (km) return { km, source: 'shared-link', label: 'from a shared link — not saved anywhere yet' };
-    return { km: bundled, source: 'bundled', label: `link could not be read — bundled snapshot @ ${sha}` };
+    // Consume the fragment either way: without this, editing a shared link and then
+    // refreshing would replay the link and shadow the edits the draft just saved.
+    history.replaceState(null, '', location.pathname + location.search);
+    if (km) return { km, source: 'shared-link', label: 'from a shared link — not saved anywhere yet', oled };
+    return { km: bundled, source: 'bundled', label: `link could not be read — bundled snapshot @ ${sha}`, oled };
   }
 
   const draft = readDraft();
@@ -127,10 +133,22 @@ export async function loadInitial(bundled: KeymapJson): Promise<Loaded> {
       draft.commit === __COMMIT__
         ? `restored draft — unsaved local edits from ${ago(draft.savedAt)}`
         : `restored draft from ${ago(draft.savedAt)} — the bundled keymap has changed since (now @ ${sha})`;
-    return { km: draft.km, source: 'autosave', label };
+    return { km: draft.km, source: 'autosave', label, oled };
   }
 
-  return { km: bundled, source: 'bundled', label: `bundled snapshot @ ${sha}` };
+  return { km: bundled, source: 'bundled', label: `bundled snapshot @ ${sha}`, oled };
+}
+
+/** config.h from the linked clone. Query-only: prompting needs a gesture we do not have on load. */
+async function readOled(): Promise<OledSettings | undefined> {
+  try {
+    const root = await idbGet();
+    if (!root || (await root.queryPermission({ mode: 'read' })) !== 'granted') return undefined;
+    const text = await readFile(await keymapDir(root), 'config.h');
+    return text === null ? undefined : parseOledBlock(text);
+  } catch {
+    return undefined;
+  }
 }
 
 // ----------------------------------------------------------------- autosave

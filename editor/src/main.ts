@@ -200,7 +200,8 @@ async function save(force = false) {
     saveAnyway.hidden = true;
     status('written to keymap.json + config.h');
   } catch (e) {
-    status(`save failed: ${String(e)}`, 'err');
+    // writeToRepo throws Error with a message meant for the user; String(e) would prefix "Error:".
+    status(`save failed: ${e instanceof Error ? e.message : String(e)}`, 'err');
   }
 }
 
@@ -287,6 +288,9 @@ loadInitial(bundled)
   .then((loaded) => {
     km = loaded.km;
     layer = 0;
+    // Show what config.h actually holds, not our defaults, or the panel would quietly
+    // offer to overwrite the linked clone's real values with 128/60000.
+    if (loaded.oled) oled = loaded.oled;
     sourceBadge.textContent = loaded.label;
     sourceBadge.dataset['source'] = loaded.source;
     refresh();
