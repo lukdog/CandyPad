@@ -11,6 +11,10 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
+    "paths": {
+      "@board": ["./src/data/keyboard.json"],
+      "@keymap": ["../keyboards/binepad/candypad/keymaps/candypad_keymap/keymap.json"]
+    },
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
