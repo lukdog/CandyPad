@@ -94,7 +94,12 @@ jobs:
           rc=0
           for km in keyboards/*/*/keymaps/*/keymap.json; do
             echo "--- $km"
-            "$TSX" editor/scripts/validate.ts "$km" --keyboard "$BOARD_JSON" || rc=1
+            # The editor writes a rules.mk next to keymap.json for OLED code; check it too,
+            # since a feature flag placed there is silently overridden by the generated rules.
+            args=()
+            rules="$(dirname "$km")/rules.mk"
+            if [ -f "$rules" ]; then args+=(--rules-mk "$rules"); fi
+            "$TSX" editor/scripts/validate.ts "$km" --keyboard "$BOARD_JSON" "${args[@]}" || rc=1
           done
           exit $rc
 

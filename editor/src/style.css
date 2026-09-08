@@ -89,7 +89,8 @@ body {
 }
 .badge[data-source="autosave"] { color: var(--warn); border-color: rgb(255 196 112 / 45%); }
 .badge[data-source="shared-link"],
-.badge[data-source="local-file"] { color: var(--lime); border-color: rgb(147 248 89 / 45%); }
+.badge[data-source="local-file"],
+.badge[data-source="linked-repo"] { color: var(--lime); border-color: rgb(147 248 89 / 45%); }
 
 .commit { color: #5c5c5c; font-size: 11px; font-family: var(--mono); }
 
@@ -605,7 +606,7 @@ body {
 
 /* ── settings sheet ──────────────────────────────────── */
 .sheet {
-  width: min(420px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   background: var(--panel);
   color: var(--fg);
   border: 1px solid var(--line-strong);
@@ -616,6 +617,25 @@ body {
 .sheet::backdrop { background: rgb(0 0 0 / 65%); backdrop-filter: blur(3px); }
 .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .sheet-body { display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field .row-label { min-width: 0; font-family: var(--mono); }
+.code {
+  background: #0c0c0c;
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  width: 100%;
+  min-height: 190px;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 4;
+}
+.code:focus { border-color: var(--lime); outline: none; }
+.code::placeholder { color: #4a4a4a; }
+.code-warn.is-warn { color: var(--warn); }
 
 /* ── status toast ────────────────────────────────────── */
 #status {
