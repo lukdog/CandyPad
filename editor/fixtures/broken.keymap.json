@@ -1,0 +1,70 @@
+{
+    "keyboard": "binepad/candypad",
+    "keymap": "candypad_keymap",
+    "layout": "LAYOUT",
+    "version": 1,
+    "config": {
+        "features": {
+            "oled": true,
+            "encoder": true,
+            "encoder_map": true,
+            "mousekey": false,
+            "rgblight": false
+        },
+        "build": {
+            "lto": true
+        }
+    },
+    "layers": [
+        [
+                        "KC_MUTE", "KC_BTN3",
+            "KC_NUM",   "KC_PSLS", "KC_PAST", "KC_PMNS",
+            "KC_P7",    "KC_P8",   "KC_P9",   "KC_PPLS",
+            "KC_P4",    "KC_P5",   "KC_P6",
+            "KC_P1",    "KC_P2",   "KC_P3",   "KC_PENT",
+                        "KC_P0",   "KC_PDOT"
+        ],
+        [
+                        "KC_TRNS", "KC_TRNS",
+            "MO(1)",    "KC_F1",   "KC_F2",   "RGB_TOG",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+                        "KC_TRNS", "KC_TRNS"
+        ],
+        [
+                        "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+                        "KC_TRNS", "KC_TRNS"
+        ],
+        [
+                        "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS",
+            "KC_TRNS",  "KC_TRNS", "KC_TRNS", "KC_TRNS",
+                        "KC_TRNS", "KC_TRNS"
+        ]
+    ],
+    "encoders": [
+        [
+            {"ccw": "KC_VOLD", "cw": "KC_VOLU"},
+            {"ccw": "MS_WHLU", "cw": "MS_WHLD"}
+        ],
+        [
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"},
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"}
+        ],
+        [
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"},
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"}
+        ],
+        [
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"},
+            {"ccw": "KC_TRNS", "cw": "KC_TRNS"}
+        ]
+    ]
+}
