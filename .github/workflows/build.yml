@@ -112,7 +112,9 @@ jobs:
           qmk --version
 
       # Shallow clone + only the submodules an STM32/ChibiOS build needs.
-      # (lufa = AVR, pico-sdk = RP2040, lvgl/googletest/vusb unused.)
+      # lib/lufa is NOT AVR-only: tmk_core/protocol/chibios/lufa_utils pulls
+      # LUFA's USB class headers, so a ChibiOS build fails without it.
+      # (pico-sdk = RP2040, lvgl/googletest/vusb unused here.)
       # No actions/cache: tarring ~1GB costs more than the fetch and the cache is branch-scoped.
       - name: Clone QMK firmware (binepad fork, pinned)
         run: |
@@ -121,7 +123,7 @@ jobs:
           git -C "$QMK_HOME" remote add origin "https://github.com/${QMK_FORK}.git"
           git -C "$QMK_HOME" fetch --depth 1 --no-tags origin "$QMK_REF"
           git -C "$QMK_HOME" checkout --detach FETCH_HEAD
-          git -C "$QMK_HOME" submodule update --init --depth 1 lib/chibios lib/chibios-contrib lib/printf
+          git -C "$QMK_HOME" submodule update --init --depth 1 lib/chibios lib/chibios-contrib lib/printf lib/lufa
           python3 -m pip install -r "$QMK_HOME/requirements.txt"
           git -C "$QMK_HOME" --no-pager log -1 --oneline
 
