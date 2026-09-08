@@ -5,8 +5,10 @@ import type { OledSettings } from './persist';
 const START = '// >>> editor-generated';
 const END = '// <<< editor-generated';
 
-/** QMK's own defaults, reported when config.h defines nothing. */
-const DEFAULTS: OledSettings = { brightness: 255, timeout: 60000 };
+/** What the board already gives us when the keymap config.h defines nothing: the CandyPad's
+ *  own config.h sets OLED_TIMEOUT to 2 minutes, so defaulting to QMK's 60000 would silently
+ *  halve the panel sleep on the first save. Brightness has no board override. */
+const DEFAULTS: OledSettings = { brightness: 255, timeout: 120000 };
 
 /** Matches a whole marker block, markers included, at line granularity. */
 const BLOCK_RE = /^[ \t]*\/\/ >>> editor-generated[\s\S]*?^[ \t]*\/\/ <<< editor-generated[ \t]*$\n?/m;
@@ -17,11 +19,15 @@ export function renderOledBlock(oled: OledSettings): string {
   const brightness = clamp(oled.brightness, 0, 255, DEFAULTS.brightness);
   // One hour is far beyond any useful panel timeout and keeps the literal small.
   const timeout = clamp(oled.timeout, 0, 3_600_000, DEFAULTS.timeout);
+  // #undef first: the board's own config.h already defines OLED_TIMEOUT, and redefining it
+  // with different tokens is a `warning: "OLED_TIMEOUT" redefined` on every build.
   return [
     START,
     "// QMK's default is 255; the CandyPad panel is uncomfortably bright at full.",
+    '#undef OLED_BRIGHTNESS',
     `#define OLED_BRIGHTNESS ${brightness}`,
     '// Milliseconds before the panel sleeps; 0 disables the timeout.',
+    '#undef OLED_TIMEOUT',
     `#define OLED_TIMEOUT ${timeout}`,
     END,
     '',

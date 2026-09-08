@@ -26,7 +26,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 
 // ── state ────────────────────────────────────────────────
 let km: KeymapJson = structuredClone(bundled);
-let oled: OledSettings = { brightness: 128, timeout: 60000 };
+let oled: OledSettings = { brightness: 128, timeout: 120000 };
 let layer = 0;
 let selected: Target | null = null;
 let issues: Issue[] = [];
