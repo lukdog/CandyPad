@@ -3,8 +3,8 @@
 import { capLabel, isNo, isTrans } from './labels';
 import type { Issue, KeyboardJson, KeycodeIndex, KeymapJson, LayoutEntry, Target } from './types';
 
-const UNIT = 56;
-const GAP = 4;
+const UNIT = 76;
+const GAP = 6;
 
 interface Slot {
   el: HTMLElement;
@@ -154,17 +154,22 @@ export function createLayerTabs(handlers: {
   onRemove: (n: number) => void;
 }): LayerTabs {
   const root = document.createElement('div');
-  root.className = 'tabs';
+  root.className = 'layerbar';
   const strip = document.createElement('div');
   strip.className = 'tab-strip';
+  const actions = document.createElement('div');
+  actions.className = 'layerbar-actions';
   const add = document.createElement('button');
-  add.className = 'tab-btn';
-  add.textContent = '+ layer';
+  add.className = 'icon-btn';
+  add.textContent = '+';
+  add.title = 'add a layer';
   add.addEventListener('click', handlers.onAdd);
   const del = document.createElement('button');
-  del.className = 'tab-btn danger';
-  del.textContent = '− layer';
-  root.append(strip, add, del);
+  del.className = 'icon-btn danger';
+  del.textContent = '−';
+  del.title = 'remove the current layer';
+  actions.append(add, del);
+  root.append(strip, actions);
 
   let active = 0;
   del.addEventListener('click', () => handlers.onRemove(active));
@@ -175,10 +180,11 @@ export function createLayerTabs(handlers: {
     strip.textContent = '';
     for (let l = 0; l < count; l++) {
       const b = document.createElement('button');
-      b.className = 'tab';
-      b.textContent = `L${l}`;
+      b.className = 'pill';
+      b.textContent = `Layer ${l}`;
       b.classList.toggle('is-active', l === current);
       b.classList.toggle('is-error', bad.has(l));
+      if (bad.has(l)) b.title = 'this layer has validation errors';
       b.addEventListener('click', () => handlers.onSelect(l));
       strip.appendChild(b);
     }
@@ -188,7 +194,7 @@ export function createLayerTabs(handlers: {
   return { el: root, paint };
 }
 
-/** ccw/cw assignments do not fit inside a 52px knob, so they get a readable strip below the pad. */
+/** ccw/cw assignments do not fit inside the knob, so they get readable cards under the pad. */
 export function createEncoderLegend(index: KeycodeIndex, onPick: (t: Target) => void) {
   const root = document.createElement('div');
   root.className = 'enc-legend';
@@ -199,17 +205,25 @@ export function createEncoderLegend(index: KeycodeIndex, onPick: (t: Target) => 
       const row = document.createElement('div');
       row.className = 'enc-row';
       const name = document.createElement('span');
-      name.className = 'enc-name';
-      name.textContent = `knob ${enc}`;
+      name.className = 'eyebrow';
+      name.textContent = `Knob ${enc}`;
       row.appendChild(name);
+      const chips = document.createElement('div');
+      chips.className = 'enc-chips';
       for (const dir of ['ccw', 'cw'] as const) {
         const b = document.createElement('button');
         b.className = 'enc-chip';
-        b.textContent = `${dir === 'ccw' ? '◀' : '▶'} ${capLabel(pair[dir], index) || '—'}`;
-        b.title = pair[dir];
+        const glyph = document.createElement('span');
+        glyph.className = 'enc-dir';
+        glyph.textContent = dir === 'ccw' ? '↺' : '↻';
+        const val = document.createElement('span');
+        val.textContent = capLabel(pair[dir], index) || '—';
+        b.append(glyph, val);
+        b.title = `${dir}: ${pair[dir]}`;
         b.addEventListener('click', () => onPick({ kind: 'enc', layer, enc, dir }));
-        row.appendChild(b);
+        chips.appendChild(b);
       }
+      row.appendChild(chips);
       root.appendChild(row);
     });
   }

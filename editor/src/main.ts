@@ -134,7 +134,6 @@ const tabs = createLayerTabs({
   onRemove: removeLayer,
 });
 
-const issueList = el('div', 'issues');
 const sourceBadge = el('span', 'badge', 'loading…');
 const statusLine = document.querySelector<HTMLElement>('#status')!;
 
@@ -144,12 +143,31 @@ function status(text: string, kind: 'ok' | 'err' = 'ok') {
   if (text) window.setTimeout(() => (statusLine.textContent === text ? (statusLine.textContent = '') : null), 4000);
 }
 
+// ── issues: collapsed by default, count badge in the summary ──
+const issueList = el('div', 'issues');
+const issueCounts = el('span', 'issue-counts');
+const issuesBox = el('details', 'issues-box');
+const issuesSummary = el('summary', 'issues-summary');
+issuesSummary.append(el('span', 'eyebrow', 'Validation'), issueCounts);
+issuesBox.append(issuesSummary, issueList);
+
 function renderIssues() {
-  issueList.textContent = '';
   const errs = issues.filter((i) => i.severity === 'error').length;
-  issueList.appendChild(
-    el('h3', 'builder-title', issues.length ? `${errs} error(s), ${issues.length - errs} warning(s)` : 'No issues'),
-  );
+  const warns = issues.length - errs;
+  issueCounts.textContent = '';
+  if (!issues.length) {
+    issueCounts.append(el('span', 'count is-ok', 'All good'));
+  } else {
+    if (errs) issueCounts.append(el('span', 'count is-error', `${errs} error${errs === 1 ? '' : 's'}`));
+    if (warns) issueCounts.append(el('span', 'count is-warning', `${warns} warning${warns === 1 ? '' : 's'}`));
+  }
+  issuesBox.classList.toggle('has-error', errs > 0);
+
+  issueList.textContent = '';
+  if (!issues.length) {
+    issueList.append(el('p', 'hint', 'The keymap passes every check.'));
+    return;
+  }
   for (const it of issues) {
     const row = el('button', `issue is-${it.severity}`);
     row.append(el('code', 'issue-code', it.code), el('span', 'issue-msg', it.message));
@@ -180,7 +198,7 @@ function refresh() {
   autosave(km);
 }
 
-// ── toolbar ──────────────────────────────────────────────
+// ── top bar ──────────────────────────────────────────────
 function button(label: string, onClick: () => void, cls = 'btn') {
   const b = el('button', cls, label);
   b.addEventListener('click', onClick);
@@ -208,12 +226,18 @@ async function save(force = false) {
 const saveAnyway = button('Save anyway', () => void save(true), 'btn danger');
 saveAnyway.hidden = true;
 
-const toolbar = el('div', 'toolbar');
-toolbar.append(
-  el('span', 'brand', 'CandyPad'),
-  sourceBadge,
-  button('Undo', () => restore(past, future)),
-  button('Redo', () => restore(future, past)),
+const brand = el('div', 'brand');
+brand.append(el('span', 'wordmark', 'CandyPad'), el('span', 'eyebrow', 'Keymap editor'));
+
+const meta = el('div', 'topbar-meta');
+meta.append(sourceBadge, el('span', 'commit', `build ${__COMMIT__}`));
+
+// Not named `history`: that shadows window.history, which the hashchange handler needs.
+const historyGroup = el('div', 'tb-group');
+historyGroup.append(button('Undo', () => restore(past, future), 'btn ghost'), button('Redo', () => restore(future, past), 'btn ghost'));
+
+const exportGroup = el('div', 'tb-group');
+exportGroup.append(
   button('Share', async () => {
     const url = shareLink(km);
     try {
@@ -222,48 +246,82 @@ toolbar.append(
     } catch {
       window.prompt('Share link', url);
     }
-  }),
-  button('Download', () => downloadKeymap(km)),
+  }, 'btn ghost'),
+  button('Download', () => downloadKeymap(km), 'btn ghost'),
 );
-if (fsaAvailable()) {
-  toolbar.append(
-    button('Link repo…', async () => status((await pickRepoDir()) ? 'repo linked' : 'not linked', 'ok')),
-    button('Save to repo', () => void save(), 'btn primary'),
-    saveAnyway,
-  );
-} else {
-  toolbar.append(el('span', 'hint', 'Direct save needs a Chromium browser — use Download instead.'));
-}
-toolbar.append(el('span', 'commit', `build ${__COMMIT__}`));
 
-// ── OLED settings (config.h #defines: QMK does not expose these to keymap.json) ──
-const oledBox = el('div', 'builder');
-oledBox.appendChild(el('h3', 'builder-title', 'OLED (config.h)'));
-function numberField(label: string, value: number, min: number, max: number, onChange: (n: number) => void) {
+const actions = el('div', 'tb-actions');
+actions.append(historyGroup, exportGroup);
+
+// ── OLED settings behind a disclosure (config.h #defines: QMK does not expose these to keymap.json) ──
+const sheet = el('dialog', 'sheet');
+const sheetHead = el('div', 'sheet-head');
+const sheetTitle = el('div', 'panel-headtext');
+sheetTitle.append(el('span', 'eyebrow', 'Firmware'), el('h2', 'panel-title', 'OLED settings'));
+const sheetClose = el('button', 'icon-btn', '✕');
+sheetClose.addEventListener('click', () => sheet.close());
+sheetHead.append(sheetTitle, sheetClose);
+
+function numberField(label: string, min: number, max: number, read: () => number, onChange: (n: number) => void) {
   const row = el('label', 'row');
   const input = el('input', 'num');
   input.type = 'number';
   input.min = String(min);
   input.max = String(max);
-  input.value = String(value);
   input.addEventListener('change', () => {
     const n = Math.min(max, Math.max(min, Number(input.value) || 0));
     input.value = String(n);
     onChange(n);
   });
   row.append(el('span', 'row-label', label), input);
-  return row;
+  return { row, sync: () => (input.value = String(read())) };
 }
-oledBox.append(
-  numberField('brightness (0-255)', oled.brightness, 0, 255, (n) => (oled = { ...oled, brightness: n })),
-  numberField('timeout (ms)', oled.timeout, 0, 3_600_000, (n) => (oled = { ...oled, timeout: n })),
+
+const oledFields = [
+  numberField('Brightness (0–255)', 0, 255, () => oled.brightness, (n) => (oled = { ...oled, brightness: n })),
+  numberField('Timeout (ms)', 0, 3_600_000, () => oled.timeout, (n) => (oled = { ...oled, timeout: n })),
+];
+const sheetBody = el('div', 'sheet-body');
+sheetBody.append(
+  ...oledFields.map((f) => f.row),
+  el('p', 'hint', 'Written to config.h as #defines when you save to the repo — keymap.json cannot carry them.'),
 );
+sheet.append(sheetHead, sheetBody);
+
+// Sync on open, not at build time: loadInitial may replace the defaults with the linked clone's values.
+const settingsBtn = button('Settings', () => {
+  for (const f of oledFields) f.sync();
+  sheet.showModal();
+}, 'btn ghost');
+
+const repoGroup = el('div', 'tb-group');
+if (fsaAvailable()) {
+  repoGroup.append(
+    settingsBtn,
+    button('Link repo…', async () => status((await pickRepoDir()) ? 'repo linked' : 'not linked', 'ok')),
+    button('Save to repo', () => void save(), 'btn primary'),
+    saveAnyway,
+  );
+} else {
+  repoGroup.append(settingsBtn, el('span', 'hint', 'Direct save needs a Chromium browser — use Download.'));
+}
+actions.append(repoGroup);
+
+const toolbar = el('div', 'toolbar');
+toolbar.append(brand, meta, actions);
 
 // ── mount ────────────────────────────────────────────────
+const padCard = el('section', 'pad-card');
+const padHead = el('div', 'pad-card-head');
+padHead.append(el('span', 'eyebrow', `${kb.keyboard_name ?? 'CandyPad'} · ${bundled.layout}`), tabs.el);
+const padWrap = el('div', 'pad-wrap');
+padWrap.append(pad.el);
+padCard.append(padHead, padWrap, legend.el);
+
 document.querySelector('#topbar')!.append(toolbar);
-const stage = document.querySelector('#stage')!;
-stage.append(tabs.el, pad.el, legend.el, oledBox, issueList);
+document.querySelector('#stage')!.append(padCard, issuesBox);
 document.querySelector('#side')!.append(panel.el);
+document.body.append(sheet);
 
 document.addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey)) return;

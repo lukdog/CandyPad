@@ -1,21 +1,16 @@
-// Assignment panel. Everything it produces is stored verbatim: no canonicalisation,
-// because KC_BTN3 and MS_BTN3 both compile and silently rewriting one produces
-// diffs the user never asked for.
+// Assignment panel: raw field, a always-visible modifier-wrap bar, and the keycode
+// picker split into task categories (see categories.ts) instead of one long scroll.
+// Everything it produces is stored verbatim: no canonicalisation, because KC_BTN3
+// and MS_BTN3 both compile and silently rewriting one produces diffs nobody asked for.
+import { buildCategories, matchesQuery, type Category, type CategoryEntry } from './categories';
 import { parse } from './expr';
 import { capLabel } from './labels';
-import type { Keycode, KeycodeIndex, Target } from './types';
-
-/** 0.0.7 has no `keypad` group — numpad keys live in `basic` — so this section is curated. */
-const NUMPAD = [
-  'KC_NUM', 'KC_PSLS', 'KC_PAST', 'KC_PMNS', 'KC_PPLS', 'KC_PENT', 'KC_PDOT', 'KC_PCMM', 'KC_PEQL',
-  'KC_P0', 'KC_P1', 'KC_P2', 'KC_P3', 'KC_P4', 'KC_P5', 'KC_P6', 'KC_P7', 'KC_P8', 'KC_P9',
-];
-
-/** Groups worth showing on a macropad; the rest hide behind "show all". */
-const PRIMARY = ['basic', 'media', 'mouse', 'modifiers', 'quantum'];
+import type { KeycodeIndex, Target } from './types';
 
 const MODS = ['CTL', 'SFT', 'ALT', 'GUI'] as const;
 type Mod = (typeof MODS)[number];
+
+const MOD_LABEL: Record<Mod, string> = { CTL: '⌃ Ctrl', SFT: '⇧ Shift', ALT: '⌥ Alt', GUI: '⌘ Gui' };
 
 /** Nested, outermost-first and always in this order, so the same picks give the same string. */
 function wrap(base: string, mods: Set<Mod>, side: 'L' | 'R'): string {
@@ -58,23 +53,43 @@ export interface Panel {
 const MAX_ROWS = 240;
 
 export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: string) => void): Panel {
+  const { categories, skipped } = buildCategories(index);
+  if (skipped.length) console.warn(`[categories] ${skipped.length} curated keycode(s) not in the table:`, skipped);
+  const allEntries = categories.find((c) => c.kind === 'all')?.entries ?? [];
+
   const root = el('aside', 'panel');
-  root.hidden = true;
 
   let target: Target | null = null;
   let base = 'KC_NO';
   let mods = new Set<Mod>();
   let side: 'L' | 'R' = 'L';
   let layerCount = 1;
-  let showAll = false;
+  let active: Category = categories[0]!;
 
+  // ── empty state ──
+  const empty = el('div', 'panel-empty');
+  empty.append(
+    el('div', 'empty-glyph', '⌨'),
+    el('p', 'empty-title', 'No key selected'),
+    el('p', 'empty-hint', 'Click a key, a knob, or an encoder chip to assign a keycode.'),
+  );
+
+  const body = el('div', 'panel-body');
+  body.hidden = true;
+
+  // ── head ──
   const head = el('div', 'panel-head');
+  const headText = el('div', 'panel-headtext');
   const heading = el('h2', 'panel-title', 'Assign');
+  headText.append(el('span', 'eyebrow', 'Assign to'), heading);
   const closeBtn = el('button', 'icon-btn', '✕');
+  closeBtn.setAttribute('aria-label', 'close panel');
   closeBtn.addEventListener('click', () => close());
-  head.append(heading, closeBtn);
+  head.append(headText, closeBtn);
 
-  const currentBox = el('div', 'current');
+  // Cap preview sits next to the raw field: the old separate "current" box repeated the
+  // same string the input already shows.
+  const currentCap = el('span', 'current-cap');
 
   // ── raw expression (the source of truth for what gets stored) ──
   const raw = el('input', 'raw');
@@ -109,17 +124,13 @@ export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: st
   });
 
   function renderCurrent(value: string) {
-    currentBox.textContent = '';
-    currentBox.append(
-      el('span', 'current-cap', capLabel(value, index) || '∅'),
-      el('code', 'current-raw', value),
-    );
+    currentCap.textContent = capLabel(value, index) || '∅';
   }
 
-  // ── quick buttons ──
+  // ── quick actions ──
   const quick = el('div', 'quick');
-  for (const [label, value] of [['▽ KC_TRNS', 'KC_TRNS'], ['∅ KC_NO', 'KC_NO']] as const) {
-    const b = el('button', 'big-btn', label);
+  for (const [label, value] of [['▽  Transparent', 'KC_TRNS'], ['∅  None', 'KC_NO']] as const) {
+    const b = el('button', 'ghost-btn', label);
     b.addEventListener('click', () => {
       base = value;
       mods = new Set();
@@ -129,57 +140,69 @@ export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: st
     quick.appendChild(b);
   }
 
-  // ── modifier-wrap builder ──
-  const modBox = el('div', 'builder');
-  modBox.appendChild(el('h3', 'builder-title', 'Wrap in modifiers'));
+  // ── modifier-wrap bar: one row, always visible, orthogonal to the category tabs ──
+  const modBox = el('div', 'wrapbar');
+  const modHead = el('div', 'wrapbar-head');
   const baseLabel = el('code', 'base-label', base);
-  const baseRow = el('div', 'row');
-  baseRow.append(el('span', 'row-label', 'base'), baseLabel);
-  const modRow = el('div', 'row');
-  const modInputs = new Map<Mod, HTMLInputElement>();
-  for (const m of MODS) {
-    const wrapEl = el('label', 'chk');
-    const cb = el('input');
-    cb.type = 'checkbox';
-    cb.addEventListener('change', () => {
-      if (cb.checked) mods.add(m); else mods.delete(m);
-      commit(wrap(base, mods, side));
-    });
-    wrapEl.append(cb, el('span', undefined, m));
-    modRow.appendChild(wrapEl);
-    modInputs.set(m, cb);
-  }
-  const sideRow = el('div', 'row');
+  modHead.append(el('span', 'eyebrow', 'Modifier wrap'), baseLabel);
+
+  const sideRow = el('div', 'seg');
   const sideInputs: HTMLInputElement[] = [];
+  const sideChips: HTMLElement[] = [];
   for (const s of ['L', 'R'] as const) {
-    const wrapEl = el('label', 'chk');
-    const rb = el('input');
+    const chip = el('label', 'seg-item');
+    const rb = el('input', 'sr-only');
     rb.type = 'radio';
     rb.name = 'mod-side';
     rb.checked = s === 'L';
     rb.addEventListener('change', () => {
       side = s;
+      syncMods();
       commit(wrap(base, mods, side));
     });
-    wrapEl.append(rb, el('span', undefined, s === 'L' ? 'Left' : 'Right'));
-    sideRow.appendChild(wrapEl);
+    chip.append(rb, el('span', undefined, s === 'L' ? 'Left' : 'Right'));
+    sideRow.appendChild(chip);
     sideInputs.push(rb);
+    sideChips.push(chip);
   }
-  modBox.append(baseRow, modRow, sideRow);
+
+  const modRow = el('div', 'chips');
+  const modInputs = new Map<Mod, { cb: HTMLInputElement; chip: HTMLElement }>();
+  for (const m of MODS) {
+    const chip = el('label', 'chip');
+    const cb = el('input', 'sr-only');
+    cb.type = 'checkbox';
+    cb.addEventListener('change', () => {
+      if (cb.checked) mods.add(m);
+      else mods.delete(m);
+      syncMods();
+      commit(wrap(base, mods, side));
+    });
+    chip.append(cb, el('span', undefined, MOD_LABEL[m]));
+    modRow.appendChild(chip);
+    modInputs.set(m, { cb, chip });
+  }
+  const wrapRow = el('div', 'wrapbar-row');
+  wrapRow.append(sideRow, modRow);
+  modBox.append(modHead, wrapRow);
 
   function syncMods() {
     baseLabel.textContent = base;
-    for (const [m, cb] of modInputs) cb.checked = mods.has(m);
-    sideInputs[side === 'L' ? 0 : 1]!.checked = true;
+    for (const [m, { cb, chip }] of modInputs) {
+      cb.checked = mods.has(m);
+      chip.classList.toggle('is-on', cb.checked);
+    }
+    const i = side === 'L' ? 0 : 1;
+    sideInputs[i]!.checked = true;
+    sideChips.forEach((c, n) => c.classList.toggle('is-on', n === i));
   }
 
-  // ── layer builder ──
+  // ── layer builder: lives inside the Layers category, not as a third stacked box ──
   const layerBox = el('div', 'builder');
-  layerBox.appendChild(el('h3', 'builder-title', 'Layer keycode'));
   const layerFn = el('select', 'sel');
   for (const fn of ['MO', 'TO', 'TG', 'OSL', 'LT']) layerFn.appendChild(el('option', undefined, fn));
   const layerNum = el('select', 'sel');
-  const layerApply = el('button', 'btn', 'Apply');
+  const layerApply = el('button', 'accent-btn', 'Apply');
   layerApply.addEventListener('click', () => {
     const fn = layerFn.value;
     const n = layerNum.value;
@@ -187,98 +210,88 @@ export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: st
   });
   const layerRow = el('div', 'row');
   layerRow.append(layerFn, layerNum, layerApply);
-  const layerHint = el('div', 'hint', 'LT() taps the base keycode above and holds the layer.');
-  layerBox.append(layerRow, layerHint);
+  layerBox.append(
+    el('span', 'eyebrow', 'Layer switch'),
+    layerRow,
+    el('p', 'hint', 'MO holds · TO switches · TG toggles · OSL is one-shot · LT taps the base keycode above and holds the layer.'),
+  );
 
-  // ── keycode list ──
+  // ── category tabs + list ──
+  const tabsEl = el('div', 'cat-tabs');
+  tabsEl.setAttribute('role', 'tablist');
+  for (const cat of categories) {
+    const b = el('button', 'cat-tab', cat.label);
+    b.setAttribute('role', 'tab');
+    b.addEventListener('click', () => {
+      active = cat;
+      search.value = '';
+      syncTabs();
+      renderList();
+    });
+    tabsEl.appendChild(b);
+  }
+
+  function syncTabs() {
+    [...tabsEl.children].forEach((b, i) => {
+      const on = categories[i] === active;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+  }
+
   const search = el('input', 'search');
   search.type = 'search';
-  search.placeholder = 'Search keycodes…';
+  search.placeholder = 'Search all keycodes…';
   search.addEventListener('input', () => renderList());
-  const allToggle = el('label', 'chk show-all');
-  const allCb = el('input');
-  allCb.type = 'checkbox';
-  allCb.addEventListener('change', () => {
-    showAll = allCb.checked;
-    renderList();
-  });
-  allToggle.append(allCb, el('span', undefined, 'show all groups'));
+
+  const listNote = el('div', 'kc-note');
   const list = el('div', 'kc-list');
 
-  const byGroup = new Map(index.groups.map((g) => [g.group, g.keycodes]));
-  const numpad = NUMPAD.map((n) => index.byName.get(n)).filter((k): k is Keycode => !!k);
-
-  function sections(): { group: string; keycodes: Keycode[] }[] {
-    const out = [{ group: 'numpad', keycodes: numpad }];
-    for (const g of PRIMARY) out.push({ group: g, keycodes: byGroup.get(g) ?? [] });
-    if (showAll) {
-      for (const g of index.groups) {
-        if (!PRIMARY.includes(g.group)) out.push(g);
-      }
-    }
-    return out.filter((s) => s.keycodes.length);
+  function entryButton(entry: CategoryEntry): HTMLElement {
+    const b = el('button', 'kc');
+    b.append(el('span', 'kc-cap', capLabel(entry.name, index) || '∅'), el('span', 'kc-name', entry.name));
+    b.title = entry.kc.label ?? entry.name;
+    // Picking a keycode sets the builder base and assigns it with the current wrappers.
+    b.addEventListener('click', () => {
+      base = entry.name;
+      syncMods();
+      commit(wrap(base, mods, side));
+    });
+    return b;
   }
 
-  function matches(kc: Keycode, q: string): boolean {
-    if (!q) return true;
-    return (
-      kc.key.toLowerCase().includes(q) ||
-      (kc.label ?? '').toLowerCase().includes(q) ||
-      (kc.aliases ?? []).some((a) => a.toLowerCase().includes(q))
-    );
-  }
-
-  // Capped per section, not virtualised: every group keeps a visible header and the
-  // search box is the way through ~730 entries.
+  // A query always searches the whole index, so nothing is unreachable through the categories.
   function renderList() {
     const q = search.value.trim().toLowerCase();
-    const perSection = q ? MAX_ROWS : 24;
+    const searching = q.length > 0;
+    layerBox.hidden = searching || active.kind !== 'layers';
+    list.hidden = !layerBox.hidden;
     list.textContent = '';
-    let painted = 0;
-    let skipped = 0;
-    for (const sec of sections()) {
-      const hits = sec.keycodes.filter((kc) => matches(kc, q));
-      if (!hits.length) continue;
-      const room = Math.min(perSection, MAX_ROWS - painted);
-      if (room <= 0) {
-        skipped += hits.length;
-        continue;
-      }
-      list.appendChild(el('div', 'kc-group', sec.group));
-      for (const kc of hits.slice(0, room)) {
-        painted++;
-        const b = el('button', 'kc');
-        b.append(el('span', 'kc-cap', capLabel(kc.key, index) || '∅'), el('span', 'kc-name', kc.key));
-        b.title = kc.label ?? kc.key;
-        // Picking a keycode sets the builder base and assigns it with the current wrappers.
-        b.addEventListener('click', () => {
-          base = kc.key;
-          syncMods();
-          commit(wrap(base, mods, side));
-        });
-        list.appendChild(b);
-      }
-      const rest = hits.length - Math.min(room, hits.length);
-      if (rest) list.appendChild(el('div', 'kc-more', `+${rest} more in ${sec.group} — use the search`));
+
+    if (!layerBox.hidden) {
+      listNote.textContent = '';
+      return;
     }
-    if (skipped) list.appendChild(el('div', 'kc-more', `${skipped} more — refine the search`));
-    if (!painted) list.appendChild(el('div', 'kc-more', 'no matches'));
+
+    const pool = searching ? allEntries : active.entries;
+    const hits = searching ? pool.filter((e) => matchesQuery(e, q)) : pool;
+    for (const entry of hits.slice(0, MAX_ROWS)) list.appendChild(entryButton(entry));
+
+    const rest = hits.length - Math.min(hits.length, MAX_ROWS);
+    listNote.textContent = !hits.length
+      ? 'No matches.'
+      : searching
+        ? `${hits.length} match${hits.length === 1 ? '' : 'es'} across all ${allEntries.length} keycodes${rest ? ` — showing ${MAX_ROWS}, refine the search` : ''}`
+        : `${hits.length} keycode${hits.length === 1 ? '' : 's'}${rest ? ` — showing ${MAX_ROWS}, use the search` : ''}`;
   }
 
-  root.append(
-    head,
-    currentBox,
-    quick,
-    el('h3', 'builder-title', 'Raw expression'),
-    raw,
-    rawErr,
-    modBox,
-    layerBox,
-    el('h3', 'builder-title', 'Keycodes'),
-    search,
-    allToggle,
-    list,
-  );
+  const rawField = el('div', 'field');
+  rawField.append(el('span', 'eyebrow', 'Raw expression'), raw);
+  const assignRow = el('div', 'assign-row');
+  assignRow.append(currentCap, rawField);
+
+  body.append(head, assignRow, rawErr, quick, modBox, tabsEl, search, listNote, layerBox, list);
+  root.append(empty, body);
 
   function open(t: Target, current: string, layers: number, title: string) {
     target = t;
@@ -294,13 +307,16 @@ export function createPanel(index: KeycodeIndex, onAssign: (t: Target, value: st
     raw.value = current;
     showParse(current);
     renderCurrent(current);
+    syncTabs();
     renderList();
-    root.hidden = false;
+    empty.hidden = true;
+    body.hidden = false;
     raw.focus();
   }
 
   function close() {
-    root.hidden = true;
+    body.hidden = true;
+    empty.hidden = false;
     target = null;
   }
 
