@@ -9,7 +9,7 @@ import {
   pickRepoDir, readFromRepo, repoLinked, shareLink, writeToRepo,
   type LoadSource, type OledSettings, type RepoState,
 } from './persist';
-import { createEncoderLegend, createLayerTabs, createPad } from './render';
+import { createLayerTabs, createPad } from './render';
 import type { Issue, KeyboardJson, KeymapJson, Target } from './types';
 import { validate } from './validate';
 
@@ -127,7 +127,6 @@ function pick(t: Target) {
 
 const panel = createPanel(index, assign);
 const pad = createPad(kb, bundled.layout, index, pick);
-const legend = createEncoderLegend(index, pick);
 const tabs = createLayerTabs({
   onSelect: (n) => {
     layer = n;
@@ -210,7 +209,6 @@ function renderIssues() {
 function refresh() {
   issues = validate(km, kb, index);
   pad.paint(km, layer, issues, selected);
-  legend.paint(km, layer);
   tabs.paint(km.layers.length, layer, issues);
   renderIssues();
   if (!issues.some((i) => i.severity === 'error')) saveAnyway.hidden = true;
@@ -421,7 +419,7 @@ const padHead = el('div', 'pad-card-head');
 padHead.append(el('span', 'eyebrow', `${kb.keyboard_name ?? 'CandyPad'} · ${bundled.layout}`), tabs.el);
 const padWrap = el('div', 'pad-wrap');
 padWrap.append(pad.el);
-padCard.append(padHead, padWrap, legend.el);
+padCard.append(padHead, padWrap);
 
 document.querySelector('#topbar')!.append(toolbar);
 document.querySelector('#stage')!.append(padCard, issuesBox);

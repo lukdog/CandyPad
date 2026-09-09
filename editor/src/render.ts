@@ -3,7 +3,7 @@
 import { capLabel, isNo, isTrans } from './labels';
 import type { Issue, KeyboardJson, KeycodeIndex, KeymapJson, LayoutEntry, Target } from './types';
 
-const UNIT = 76;
+const UNIT = 88;
 const GAP = 6;
 
 interface Slot {
@@ -25,6 +25,35 @@ const sameTarget = (a: Target | null, b: Target | null): boolean =>
 /** Issue key so a cell can look up its own findings in one pass. */
 const cellKey = (w: Issue['where']): string =>
   w?.key !== undefined ? `k${w.layer}:${w.key}` : `e${w?.layer}:${w?.enc}:${w?.dir}`;
+
+const NS = 'http://www.w3.org/2000/svg';
+const VIEWBOX = '0 0 132 132';
+/** Arcs of the circle the knob turns on: r=48 about (66,66) of a 132 square. */
+const ARC = {
+  ccw: 'M 26 92 A 48 48 0 0 1 26 40',
+  cw: 'M 106 40 A 48 48 0 0 1 106 92',
+  track: 'M 66 18 A 48 48 0 1 1 65.9 18',
+} as const;
+// Each arc button owns the 42% slice of the square it sits in; same aspect, so nothing letterboxes.
+const HALF_VIEWBOX = { ccw: '0 0 55.4 132', cw: '76.6 0 55.4 132' } as const;
+
+function arcSvg(viewBox: string, d: string, cls: string): SVGSVGElement {
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', viewBox);
+  svg.setAttribute('class', cls);
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', d);
+  svg.appendChild(path);
+  return svg;
+}
+
+function eyebrow(text: string): HTMLElement {
+  const s = document.createElement('span');
+  s.className = 'dial-eyebrow';
+  s.textContent = text;
+  return s;
+}
 
 export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIndex, onPick: (t: Target) => void): Pad {
   const layout: LayoutEntry[] = kb.layouts?.[layoutName]?.layout ?? [];
@@ -53,34 +82,44 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
   root.appendChild(oled);
 
   const slots: Slot[] = [];
-  const caps: { el: HTMLElement; text: HTMLElement | null; slot: Slot }[] = [];
+  const caps: { el: HTMLElement; text: HTMLElement; slot: Slot }[] = [];
 
   layout.forEach((entry, i) => {
     if (entry.encoder !== undefined) {
       const enc = entry.encoder;
-      const knob = document.createElement('div');
-      knob.className = 'knob';
-      place(knob, entry.x, entry.y, entry.w, entry.h);
-      const parts: [string, (layer: number) => Target, string][] = [
-        ['◀', (layer) => ({ kind: 'enc', layer, enc, dir: 'ccw' }), 'knob-ccw'],
-        ['', (layer) => ({ kind: 'key', layer, index: i }), 'knob-press'],
-        ['▶', (layer) => ({ kind: 'enc', layer, enc, dir: 'cw' }), 'knob-cw'],
-      ];
-      for (const [glyph, make, cls] of parts) {
-        const b = document.createElement('button');
-        b.className = `slot ${cls}`;
-        const text = document.createElement('span');
-        text.className = 'slot-label';
-        text.textContent = glyph;
-        b.appendChild(text);
-        knob.appendChild(b);
-        const slot: Slot = { el: b, target: null, make };
-        b.addEventListener('click', () => slot.target && onPick(slot.target));
+      const dial = document.createElement('div');
+      dial.className = 'dial';
+      place(dial, entry.x, entry.y, entry.w, entry.h);
+      dial.appendChild(arcSvg(VIEWBOX, ARC.track, 'dial-track'));
+
+      const add = (el: HTMLElement, text: HTMLElement, make: (layer: number) => Target) => {
+        const slot: Slot = { el, target: null, make };
+        el.addEventListener('click', () => slot.target && onPick(slot.target));
         slots.push(slot);
-        // The arrow glyphs are fixed; only the centre press cap shows an assignment.
-        caps.push({ el: b, text: cls === 'knob-press' ? text : null, slot });
+        caps.push({ el, text, slot });
+        dial.appendChild(el);
+      };
+
+      for (const dir of ['ccw', 'cw'] as const) {
+        const b = document.createElement('button');
+        b.className = `dial-btn dial-${dir}`;
+        b.setAttribute('aria-label', `knob ${enc} ${dir === 'ccw' ? 'counter-clockwise' : 'clockwise'}`);
+        const val = document.createElement('span');
+        val.className = 'dial-val';
+        // The half viewBox is what lets a button-sized box hold its own full-circle arc.
+        b.append(arcSvg(HALF_VIEWBOX[dir], ARC[dir], 'dial-arc'), val);
+        add(b, val, (layer) => ({ kind: 'enc', layer, enc, dir }));
       }
-      root.appendChild(knob);
+
+      // The press is an ordinary key in LAYOUT, so it carries the entry's own index.
+      const press = document.createElement('button');
+      press.className = 'dial-press';
+      const pressText = document.createElement('span');
+      pressText.className = 'slot-label';
+      press.append(eyebrow('press'), pressText);
+      add(press, pressText, (layer) => ({ kind: 'key', layer, index: i }));
+
+      root.appendChild(dial);
       return;
     }
 
@@ -120,7 +159,7 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
       slot.target = t;
       const value = raw(t);
       const sev = worst.get(cellKey(t.kind === 'key' ? { layer, key: t.index } : { layer, enc: t.enc, dir: t.dir }));
-      if (text) text.textContent = capLabel(value, index);
+      text.textContent = capLabel(value, index);
       el.title = value ? `${value}${sev ? ' — see issues' : ''}` : 'unassigned';
       el.classList.toggle('is-error', sev === 'error');
       el.classList.toggle('is-warn', sev === 'warning');
@@ -189,43 +228,6 @@ export function createLayerTabs(handlers: {
       strip.appendChild(b);
     }
     del.disabled = count <= 1;
-  }
-
-  return { el: root, paint };
-}
-
-/** ccw/cw assignments do not fit inside the knob, so they get readable cards under the pad. */
-export function createEncoderLegend(index: KeycodeIndex, onPick: (t: Target) => void) {
-  const root = document.createElement('div');
-  root.className = 'enc-legend';
-
-  function paint(km: KeymapJson, layer: number) {
-    root.textContent = '';
-    (km.encoders?.[layer] ?? []).forEach((pair, enc) => {
-      const row = document.createElement('div');
-      row.className = 'enc-row';
-      const name = document.createElement('span');
-      name.className = 'eyebrow';
-      name.textContent = `Knob ${enc}`;
-      row.appendChild(name);
-      const chips = document.createElement('div');
-      chips.className = 'enc-chips';
-      for (const dir of ['ccw', 'cw'] as const) {
-        const b = document.createElement('button');
-        b.className = 'enc-chip';
-        const glyph = document.createElement('span');
-        glyph.className = 'enc-dir';
-        glyph.textContent = dir === 'ccw' ? '↺' : '↻';
-        const val = document.createElement('span');
-        val.textContent = capLabel(pair[dir], index) || '—';
-        b.append(glyph, val);
-        b.title = `${dir}: ${pair[dir]}`;
-        b.addEventListener('click', () => onPick({ kind: 'enc', layer, enc, dir }));
-        chips.appendChild(b);
-      }
-      row.appendChild(chips);
-      root.appendChild(row);
-    });
   }
 
   return { el: root, paint };
