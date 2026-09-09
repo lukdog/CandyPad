@@ -15,23 +15,23 @@
         [
             "KC_MUTE",
             "MO(1)",
-            "KC_NUM",
-            "KC_PSLS",
-            "KC_PAST",
-            "KC_PMNS",
-            "KC_P7",
-            "KC_P8",
-            "KC_P9",
-            "KC_PPLS",
-            "KC_P4",
-            "KC_P5",
-            "KC_P6",
-            "KC_P1",
-            "KC_P2",
-            "KC_P3",
-            "KC_PENT",
-            "KC_P0",
-            "KC_PDOT"
+            "LCTL(KC_LEFT)",
+            "LCTL(KC_RIGHT)",
+            "KC_DELETE",
+            "LCTL(LSFT(LGUI(KC_4)))",
+            "LSFT(LGUI(KC_SPACE))",
+            "KC_F17",
+            "LCTL(KC_UP)",
+            "LGUI(KC_KP_PLUS)",
+            "LGUI(KC_C)",
+            "LGUI(KC_V)",
+            "LGUI(KC_Z)",
+            "LCTL(LGUI(KC_SPACE))",
+            "LGUI(KC_F11)",
+            "LSFT(LGUI(KC_Z))",
+            "LGUI(KC_KP_MINUS)",
+            "KC_NO",
+            "LCTL(LGUI(KC_Q))"
         ],
         [
             "KC_TRNS",
@@ -62,8 +62,8 @@
                 "cw": "KC_VOLU"
             },
             {
-                "ccw": "MS_WHLU",
-                "cw": "MS_WHLD"
+                "ccw": "KC_BRIGHTNESS_DOWN",
+                "cw": "KC_BRIGHTNESS_UP"
             }
         ],
         [
