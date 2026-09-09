@@ -77,12 +77,18 @@
     </main>
     <div id="status" role="status"></div>
 
-    <!-- Static prose, not filled in by JS: #app is empty in the raw HTML, and most
-         crawlers that matter here - including the LLM ones - do not execute JavaScript.
-         It is also the only thing on the page that tells a cold visitor what a CandyPad is. -->
-    <footer id="about">
-      <div class="about-inner">
-        <h1>CandyPad Keymap Editor</h1>
+    <!-- Authored here rather than in JS, and kept as a closed <dialog>: the content stays
+         in the raw HTML for crawlers that do not run JavaScript, without putting a wall of
+         prose under the editor. The ⓘ button in the top bar opens it. -->
+    <dialog id="about" class="sheet info-sheet">
+      <div class="sheet-head">
+        <div class="panel-headtext">
+          <span class="eyebrow">About</span>
+          <h2 class="panel-title">CandyPad Keymap Editor</h2>
+        </div>
+        <button class="icon-btn" data-close-about type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="sheet-body about-body">
         <p>
           A visual keymap editor for the <strong>binepad CandyPad</strong> — a 19-key QMK macropad
           with two rotary encoders and a 128×32 OLED, built on an STM32F103. It edits QMK's
@@ -90,17 +96,17 @@
           local clone of your firmware repository.
         </p>
 
-        <h2>Why it exists</h2>
+        <h3>Why it exists</h3>
         <p>
           The vendor's own web configurator cannot express modified keycodes — there is no way to
-          put <code>LCTL(KC_LEFT)</code> on a key. It also shipped firmware with real defects: layers
-          that no key could reach, and mouse keycodes assigned while the mousekey feature was
-          switched off, so those keys compiled and silently did nothing. This editor accepts any
-          expression valid inside QMK's <code>LAYOUT()</code> macro, and validates the keymap before
-          you spend four minutes building it.
+          put <code>LCTL(KC_LEFT)</code> on a key. It also shipped firmware with real defects:
+          layers that no key could reach, and mouse keycodes assigned while the mousekey feature
+          was switched off, so those keys compiled and silently did nothing. This editor accepts
+          any expression valid inside QMK's <code>LAYOUT()</code> macro, and validates the keymap
+          before you spend four minutes building it.
         </p>
 
-        <h2>What it does</h2>
+        <h3>What it does</h3>
         <ul>
           <li>Assign any keycode, including nested modifiers such as <code>LCTL(LSFT(KC_TAB))</code>.</li>
           <li>Browse the full QMK keycode table through task categories rather than QMK's internal groups.</li>
@@ -114,24 +120,49 @@
           <li>Save into a local clone, download the JSON, or share a keymap as a link — no account, no token.</li>
         </ul>
 
-        <h2>How to use it with your own CandyPad</h2>
-        <ol>
-          <li>Fork and clone <a href="https://github.com/lukdog/CandyPad" rel="noopener noreferrer">the repository</a>.</li>
-          <li>Open this page, choose <strong>Link repo…</strong> and pick your clone's root folder (Chrome or Edge).</li>
-          <li>Edit keys and knobs, then <strong>Save to repo</strong>.</li>
-          <li>Commit and push — GitHub Actions builds the firmware and attaches the <code>.bin</code> to the run.</li>
+        <h3>Build your own firmware</h3>
+        <ol class="steps">
           <li>
-            Flash it with <code>dfu-util -d 1EAF:0003 -a 2 -R -D &lt;firmware&gt;.bin</code> or QMK
-            Toolbox. This board uses the stm32duino bootloader, not the STM32 ROM DFU.
+            <strong>Fork</strong>
+            <a href="https://github.com/lukdog/CandyPad" target="_blank" rel="noopener noreferrer">github.com/lukdog/CandyPad</a>
+            on GitHub.
+          </li>
+          <li><strong>Clone</strong> your fork locally: <code>git clone https://github.com/&lt;you&gt;/CandyPad.git</code></li>
+          <li><strong>Open this editor</strong> — the page you are on.</li>
+          <li><strong>Link repo…</strong> and pick the root folder of your clone (Chrome or Edge; other browsers get Download instead).</li>
+          <li><strong>Edit your keys</strong> — click any key or knob, then pick a keycode.</li>
+          <li><strong>Save to repo</strong> — writes <code>keymap.json</code> and <code>config.h</code> into your clone.</li>
+          <li>
+            <strong>Commit and push</strong> — GitHub Actions builds the firmware; download the
+            <code>.bin</code> from the run's artifacts and flash it.
           </li>
         </ol>
 
+        <ul class="notes">
+          <li>
+            <strong>Link repo… needs Chrome or Edge.</strong> The File System Access API does not
+            exist in Firefox or Safari. There, use Download and copy the file into your clone by hand.
+          </li>
+          <li>
+            <strong>You do not need a fork to try it.</strong> Editing here and using Share or
+            Download works with no GitHub account at all.
+          </li>
+          <li class="is-warn">
+            <strong>⚠ Point the folder picker at the right folder.</strong> It writes wherever you aim it.
+          </li>
+          <li>
+            <strong>Flashing:</strong> <code>dfu-util -d 1EAF:0003 -a 2 -R -D &lt;firmware&gt;.bin</code>, or
+            <a href="https://github.com/qmk/qmk_toolbox" target="_blank" rel="noopener noreferrer">QMK Toolbox</a>.
+            Never <code>0483:DF11</code> — that is the chip's ROM DFU and would overwrite the bootloader.
+          </li>
+        </ul>
+
         <p class="about-foot">
           Free and open source under the GPL-2.0-or-later, like QMK itself.
-          <a href="https://github.com/lukdog/CandyPad" rel="noopener noreferrer">Source on GitHub</a>.
+          <a href="https://github.com/lukdog/CandyPad" target="_blank" rel="noopener noreferrer">Source on GitHub</a>.
         </p>
       </div>
-    </footer>
+    </dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
