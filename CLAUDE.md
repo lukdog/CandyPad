@@ -154,6 +154,13 @@ editor/src/
 - **Unreachable layers are an error.** A warning would not have stopped the firmware the
   vendor tool shipped.
 - `layers` and `encoders` must be mutated atomically — see fact 4.
+- **Linking a repo must never discard unsaved content.** `loadInitial` consumes the `#km=`
+  fragment via `replaceState`, and adopting the clone calls `refresh()`, whose `autosave()`
+  overwrites the draft — so silently adopting after opening a share link destroys that keymap
+  in all three places at once. `linkRepo()` reads the clone first and only adopts when nothing
+  would be lost; otherwise it asks, with *keep what is on screen* as the OK path, and still
+  links the clone so "Save to repo" writes the shared keymap into it. Receive a link → link
+  your clone → save is the whole point of the share feature.
 
 Cold-start source order: shared link → newer local draft → linked repo → bundled snapshot.
 The source badge is a safety feature; it is what stops a stale page overwriting newer edits.
