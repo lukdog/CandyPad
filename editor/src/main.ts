@@ -455,16 +455,75 @@ const settingsBtn = button('Settings', () => {
   sheet.showModal();
 }, 'btn ghost');
 
+// ── info dialog: how a visitor with no clone gets to their own firmware ──
+const link = (href: string, text: string) => {
+  const a = el('a', undefined, text);
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  return a;
+};
+
+/** <li><strong>lead</strong> rest…</li> — keeps each step and note to a single line. */
+const listItem = (lead: string, ...rest: (string | Node)[]) => {
+  const li = el('li');
+  li.append(el('strong', undefined, lead), ' ', ...rest);
+  return li;
+};
+
+const code = (text: string) => el('code', undefined, text);
+
+const steps = el('ol', 'steps');
+steps.append(
+  listItem('Fork', link('https://github.com/lukdog/CandyPad', 'github.com/lukdog/CandyPad'), ' on GitHub.'),
+  listItem('Clone', 'your fork locally: ', code('git clone https://github.com/<you>/CandyPad.git')),
+  listItem('Open this editor', '— the page you are on.'),
+  listItem('Link repo…', 'and pick the root folder of your clone (Chrome or Edge; other browsers get Download instead).'),
+  listItem('Edit your keys', '— click any key or knob, then pick a keycode.'),
+  listItem('Save to repo', '— writes ', code('keymap.json'), ' and ', code('config.h'), ' into your clone.'),
+  listItem('Commit and push', '— GitHub Actions builds the firmware; download the ', code('.bin'),
+    ' from the run’s artifacts and flash it.'),
+);
+
+const warnNote = listItem('⚠ Point the folder picker at the right folder.', 'It writes wherever you aim it.');
+warnNote.className = 'is-warn';
+
+const notes = el('ul', 'notes');
+notes.append(
+  listItem('Link repo… needs Chrome or Edge.', 'The File System Access API does not exist in Firefox or Safari. There, use Download and copy the file into your clone by hand.'),
+  listItem('You do not need a fork to try it.', 'Editing here and using Share or Download works with no GitHub account at all.'),
+  warnNote,
+  listItem('Flashing:', code('dfu-util -d 1EAF:0003 -a 2 -R -D <firmware>.bin'), ', or ',
+    link('https://github.com/qmk/qmk_toolbox', 'QMK Toolbox'), '. Never ', code('0483:DF11'),
+    ' — that is the chip’s ROM DFU and would overwrite the bootloader.'),
+);
+
+const info = el('dialog', 'sheet info-sheet');
+const infoHead = el('div', 'sheet-head');
+const infoTitle = el('div', 'panel-headtext');
+infoTitle.append(el('span', 'eyebrow', 'Getting started'), el('h2', 'panel-title', 'Build your own firmware'));
+const infoClose = el('button', 'icon-btn', '✕');
+infoClose.addEventListener('click', () => info.close());
+infoHead.append(infoTitle, infoClose);
+const infoBody = el('div', 'sheet-body');
+infoBody.append(steps, notes);
+info.append(infoHead, infoBody);
+
+const infoBtn = button('ⓘ', () => info.showModal(), 'icon-btn');
+infoBtn.title = 'How to build your own firmware';
+infoBtn.setAttribute('aria-label', 'How to build your own firmware');
+
 const repoGroup = el('div', 'tb-group');
 if (fsaAvailable()) {
   repoGroup.append(
     settingsBtn,
+    infoBtn,
     button('Link repo…', () => void linkRepo()),
     button('Save to repo', () => void save(), 'btn primary'),
     saveAnyway,
   );
 } else {
-  repoGroup.append(settingsBtn, el('span', 'hint', 'Direct save needs a Chromium browser — use Download.'));
+  repoGroup.append(settingsBtn, infoBtn, el('span', 'hint', 'Direct save needs a Chromium browser — use Download.'));
 }
 actions.append(repoGroup);
 
@@ -482,7 +541,7 @@ padCard.append(padHead, padWrap);
 document.querySelector('#topbar')!.append(toolbar);
 document.querySelector('#stage')!.append(padCard, issuesBox);
 document.querySelector('#side')!.append(panel.el);
-document.body.append(sheet);
+document.body.append(sheet, info);
 
 document.addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey)) return;
