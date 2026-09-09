@@ -62,19 +62,19 @@ bool candypad_render_default_user(void) {
         oled_set_cursor(18, row);
         oled_write(label, true);
         DRAW_H((OLED_FONT_WIDTH * 18) - 1, (OLED_FONT_HEIGHT * row) - 1, (OLED_FONT_WIDTH * 3) + 1, true);
-        DRAW_V((OLED_FONT_WIDTH * 18) - 1, OLED_FONT_HEIGHT * row, O
+        DRAW_V((OLED_FONT_WIDTH * 18) - 1, OLED_FONT_HEIGHT * row, OLED_FONT_HEIGHT, true);
     }
 
     // --- Lock keys ---
     led_t led_state = host_keyboard_led_state();
     oled_set_cursor(4, 3);
-    if (led_state.caps_lock && !led_state.num_lock) { // caps transc
+    if (led_state.caps_lock && !led_state.num_lock) { // caps transcends keyboards
         oled_write_P(PSTR("CAP"), true);
     } else {
         oled_write_P(PSTR("NUM"), led_state.num_lock);
     }
     on = led_state.num_lock || led_state.caps_lock;
-    DRAW_H((OLED_FONT_WIDTH * 4) - 1, (OLED_FONT_HEIGHT * 3) - 1, (On);
+    DRAW_H((OLED_FONT_WIDTH * 4) - 1, (OLED_FONT_HEIGHT * 3) - 1, (OLED_FONT_WIDTH * 3) + 1, on);
     DRAW_V((OLED_FONT_WIDTH * 4) - 1, OLED_FONT_HEIGHT * 3, OLED_FONT_HEIGHT, on);
 
     // --- Matrix mini-map ---
