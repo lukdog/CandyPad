@@ -32,7 +32,7 @@ on:
         required: false
         default: ''
 
-# upload-artifact@v4 uses the runtime token, not GITHUB_TOKEN, so read is enough.
+# upload-artifact@v7 uses the runtime token, not GITHUB_TOKEN, so read is enough.
 permissions:
   contents: read
 
@@ -61,11 +61,11 @@ jobs:
       # editor/node_modules and fetch an unpinned tsx. Use the one npm ci installed.
       TSX: ./editor/node_modules/.bin/tsx
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: editor/package-lock.json
 
@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout userspace
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -140,7 +140,7 @@ jobs:
           git checkout "${{ github.event.inputs.userspace_ref }}" -- keyboards qmk.json
           git --no-pager log -1 --oneline "${{ github.event.inputs.userspace_ref }}"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -319,7 +319,7 @@ jobs:
 
       - name: Upload firmware artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: candypad-firmware${{ github.event.inputs.userspace_ref && format('-{0}', github.event.inputs.userspace_ref) || '' }}
           path: |
