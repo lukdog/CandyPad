@@ -107,7 +107,9 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
         const val = document.createElement('span');
         val.className = 'dial-val';
         // The half viewBox is what lets a button-sized box hold its own full-circle arc.
-        b.append(arcSvg(HALF_VIEWBOX[dir], ARC[dir], 'dial-arc'), val);
+        // The eyebrow matches the centre cap's "press": without it, nothing but left/right
+        // position says which arc is which direction.
+        b.append(arcSvg(HALF_VIEWBOX[dir], ARC[dir], 'dial-arc'), eyebrow(dir), val);
         add(b, val, (layer) => ({ kind: 'enc', layer, enc, dir }));
       }
 
