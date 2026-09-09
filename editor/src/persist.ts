@@ -198,6 +198,15 @@ export function autosave(km: KeymapJson): void {
   }
 }
 
+/** Throws the draft away, so the next cold start falls through to the repo or the bundle. */
+export function clearDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Same as autosave: the accessor itself can throw, and there is nothing to recover.
+  }
+}
+
 function readDraft(): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -219,7 +228,18 @@ function ago(ts: number): string {
   return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
 }
 
-// -------------------------------------------------------- drag-and-drop
+// ------------------------------------------------- files from the user
+
+/** The only path from a file the user hands us to a keymap: the drop target and the
+ *  Import picker share it so there is never a second, laxer parser. */
+export async function readKeymapFile(file: File): Promise<KeymapJson | null> {
+  if (file.size > MAX_BYTES) return null;
+  try {
+    return parseKeymap(await file.text());
+  } catch {
+    return null; // unreadable file, e.g. deleted between picking and reading
+  }
+}
 
 export function onDropFile(el: HTMLElement, cb: (km: KeymapJson) => void): void {
   const allow = (e: DragEvent) => {
@@ -232,8 +252,7 @@ export function onDropFile(el: HTMLElement, cb: (km: KeymapJson) => void): void 
     e.preventDefault();
     const file = e.dataTransfer?.files[0];
     if (!file) return;
-    void file.text().then((text) => {
-      const km = parseKeymap(text);
+    void readKeymapFile(file).then((km) => {
       if (km) cb(km);
       else console.warn('CandyPad: dropped file is not a valid keymap.json');
     });
