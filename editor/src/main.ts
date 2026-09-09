@@ -5,8 +5,8 @@ import { buildIndex } from './keycodes';
 import { checkOledC } from './oled';
 import { createPanel } from './panel';
 import {
-  LINKED_REPO_LABEL, autosave, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
-  pickRepoDir, readFromRepo, repoLinked, shareLink, writeToRepo,
+  LINKED_REPO_LABEL, autosave, clearDraft, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
+  pickRepoDir, readFromRepo, readKeymapFile, repoLinked, shareLink, writeToRepo,
   type LoadSource, type OledSettings, type RepoState,
 } from './persist';
 import { createLayerTabs, createPad } from './render';
@@ -294,6 +294,33 @@ function adoptRepo(repo: RepoState): void {
   status('loaded keymap.json, config.h and oled.c from the linked clone');
 }
 
+/** Replaces everything on screen with another keymap, snapshotting first so it is undoable. */
+function adopt(next: KeymapJson, src: LoadSource, label: string): void {
+  snapshot('');
+  km = next;
+  layer = 0;
+  selected = null;
+  panel.close();
+  setSource(src, label);
+  refresh(); // re-validates: an imported or reset keymap may well be broken, and then we say so
+}
+
+/** Out of a draft and back to whatever the draft was covering — the clone, else the bundle. */
+async function resetToSource(): Promise<void> {
+  if (!window.confirm(
+    'Discard your local draft?\n\n' +
+      'Everything not saved to your clone is thrown away and the editor goes back to the ' +
+      'keymap it started from. Undo can still bring it back until you reload.',
+  )) return;
+
+  const repo = await readFromRepo();
+  if (repo) adoptRepo(repo);
+  else adopt(structuredClone(bundled), 'bundled', `bundled snapshot @ ${__COMMIT__.slice(0, 7)}`);
+  // After refresh(), not before: refresh() autosaves, so clearing first would be undone at once.
+  clearDraft();
+  status(repo ? 'draft discarded — back to your linked clone' : 'draft discarded — back to the bundled snapshot');
+}
+
 const saveAnyway = button('Save anyway', () => void save(true), 'btn danger');
 saveAnyway.hidden = true;
 
@@ -305,10 +332,36 @@ meta.append(sourceBadge, el('span', 'commit', `build ${__COMMIT__}`));
 
 // Not named `history`: that shadows window.history, which the hashchange handler needs.
 const historyGroup = el('div', 'tb-group');
-historyGroup.append(button('Undo', () => restore(past, future), 'btn ghost'), button('Redo', () => restore(future, past), 'btn ghost'));
+historyGroup.append(
+  button('Undo', () => restore(past, future), 'btn ghost'),
+  button('Redo', () => restore(future, past), 'btn ghost'),
+  button('Reset', () => void resetToSource(), 'btn ghost'),
+);
+
+// Hidden picker, same validated path as the drop target. Kept in the DOM: a detached
+// input does not open a picker in every browser.
+const fileInput = el('input');
+fileInput.type = 'file';
+fileInput.accept = 'application/json,.json';
+fileInput.hidden = true;
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  fileInput.value = ''; // so picking the same file twice still fires change
+  if (!file) return;
+  void readKeymapFile(file).then((loaded) => {
+    if (!loaded) {
+      status(`${file.name} is not a valid keymap.json`, 'err');
+      return;
+    }
+    adopt(loaded, 'local-file', `local file — ${file.name}, not saved anywhere yet`);
+    status(`imported ${file.name}`);
+  });
+});
 
 const exportGroup = el('div', 'tb-group');
 exportGroup.append(
+  fileInput,
+  button('Import', () => fileInput.click(), 'btn ghost'),
   button('Share', async () => {
     const url = shareLink(km);
     try {
@@ -402,16 +455,75 @@ const settingsBtn = button('Settings', () => {
   sheet.showModal();
 }, 'btn ghost');
 
+// ── info dialog: how a visitor with no clone gets to their own firmware ──
+const link = (href: string, text: string) => {
+  const a = el('a', undefined, text);
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  return a;
+};
+
+/** <li><strong>lead</strong> rest…</li> — keeps each step and note to a single line. */
+const listItem = (lead: string, ...rest: (string | Node)[]) => {
+  const li = el('li');
+  li.append(el('strong', undefined, lead), ' ', ...rest);
+  return li;
+};
+
+const code = (text: string) => el('code', undefined, text);
+
+const steps = el('ol', 'steps');
+steps.append(
+  listItem('Fork', link('https://github.com/lukdog/CandyPad', 'github.com/lukdog/CandyPad'), ' on GitHub.'),
+  listItem('Clone', 'your fork locally: ', code('git clone https://github.com/<you>/CandyPad.git')),
+  listItem('Open this editor', '— the page you are on.'),
+  listItem('Link repo…', 'and pick the root folder of your clone (Chrome or Edge; other browsers get Download instead).'),
+  listItem('Edit your keys', '— click any key or knob, then pick a keycode.'),
+  listItem('Save to repo', '— writes ', code('keymap.json'), ' and ', code('config.h'), ' into your clone.'),
+  listItem('Commit and push', '— GitHub Actions builds the firmware; download the ', code('.bin'),
+    ' from the run’s artifacts and flash it.'),
+);
+
+const warnNote = listItem('⚠ Point the folder picker at the right folder.', 'It writes wherever you aim it.');
+warnNote.className = 'is-warn';
+
+const notes = el('ul', 'notes');
+notes.append(
+  listItem('Link repo… needs Chrome or Edge.', 'The File System Access API does not exist in Firefox or Safari. There, use Download and copy the file into your clone by hand.'),
+  listItem('You do not need a fork to try it.', 'Editing here and using Share or Download works with no GitHub account at all.'),
+  warnNote,
+  listItem('Flashing:', code('dfu-util -d 1EAF:0003 -a 2 -R -D <firmware>.bin'), ', or ',
+    link('https://github.com/qmk/qmk_toolbox', 'QMK Toolbox'), '. Never ', code('0483:DF11'),
+    ' — that is the chip’s ROM DFU and would overwrite the bootloader.'),
+);
+
+const info = el('dialog', 'sheet info-sheet');
+const infoHead = el('div', 'sheet-head');
+const infoTitle = el('div', 'panel-headtext');
+infoTitle.append(el('span', 'eyebrow', 'Getting started'), el('h2', 'panel-title', 'Build your own firmware'));
+const infoClose = el('button', 'icon-btn', '✕');
+infoClose.addEventListener('click', () => info.close());
+infoHead.append(infoTitle, infoClose);
+const infoBody = el('div', 'sheet-body');
+infoBody.append(steps, notes);
+info.append(infoHead, infoBody);
+
+const infoBtn = button('ⓘ', () => info.showModal(), 'icon-btn');
+infoBtn.title = 'How to build your own firmware';
+infoBtn.setAttribute('aria-label', 'How to build your own firmware');
+
 const repoGroup = el('div', 'tb-group');
 if (fsaAvailable()) {
   repoGroup.append(
     settingsBtn,
+    infoBtn,
     button('Link repo…', () => void linkRepo()),
     button('Save to repo', () => void save(), 'btn primary'),
     saveAnyway,
   );
 } else {
-  repoGroup.append(settingsBtn, el('span', 'hint', 'Direct save needs a Chromium browser — use Download.'));
+  repoGroup.append(settingsBtn, infoBtn, el('span', 'hint', 'Direct save needs a Chromium browser — use Download.'));
 }
 actions.append(repoGroup);
 
@@ -429,7 +541,7 @@ padCard.append(padHead, padWrap);
 document.querySelector('#topbar')!.append(toolbar);
 document.querySelector('#stage')!.append(padCard, issuesBox);
 document.querySelector('#side')!.append(panel.el);
-document.body.append(sheet);
+document.body.append(sheet, info);
 
 document.addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey)) return;
