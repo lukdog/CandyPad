@@ -5,8 +5,8 @@ import { buildIndex } from './keycodes';
 import { checkOledC } from './oled';
 import { createPanel } from './panel';
 import {
-  LINKED_REPO_LABEL, autosave, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
-  pickRepoDir, readFromRepo, repoLinked, shareLink, writeToRepo,
+  LINKED_REPO_LABEL, autosave, clearDraft, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
+  pickRepoDir, readFromRepo, readKeymapFile, repoLinked, shareLink, writeToRepo,
   type LoadSource, type OledSettings, type RepoState,
 } from './persist';
 import { createLayerTabs, createPad } from './render';
@@ -294,6 +294,33 @@ function adoptRepo(repo: RepoState): void {
   status('loaded keymap.json, config.h and oled.c from the linked clone');
 }
 
+/** Replaces everything on screen with another keymap, snapshotting first so it is undoable. */
+function adopt(next: KeymapJson, src: LoadSource, label: string): void {
+  snapshot('');
+  km = next;
+  layer = 0;
+  selected = null;
+  panel.close();
+  setSource(src, label);
+  refresh(); // re-validates: an imported or reset keymap may well be broken, and then we say so
+}
+
+/** Out of a draft and back to whatever the draft was covering — the clone, else the bundle. */
+async function resetToSource(): Promise<void> {
+  if (!window.confirm(
+    'Discard your local draft?\n\n' +
+      'Everything not saved to your clone is thrown away and the editor goes back to the ' +
+      'keymap it started from. Undo can still bring it back until you reload.',
+  )) return;
+
+  const repo = await readFromRepo();
+  if (repo) adoptRepo(repo);
+  else adopt(structuredClone(bundled), 'bundled', `bundled snapshot @ ${__COMMIT__.slice(0, 7)}`);
+  // After refresh(), not before: refresh() autosaves, so clearing first would be undone at once.
+  clearDraft();
+  status(repo ? 'draft discarded — back to your linked clone' : 'draft discarded — back to the bundled snapshot');
+}
+
 const saveAnyway = button('Save anyway', () => void save(true), 'btn danger');
 saveAnyway.hidden = true;
 
@@ -305,10 +332,36 @@ meta.append(sourceBadge, el('span', 'commit', `build ${__COMMIT__}`));
 
 // Not named `history`: that shadows window.history, which the hashchange handler needs.
 const historyGroup = el('div', 'tb-group');
-historyGroup.append(button('Undo', () => restore(past, future), 'btn ghost'), button('Redo', () => restore(future, past), 'btn ghost'));
+historyGroup.append(
+  button('Undo', () => restore(past, future), 'btn ghost'),
+  button('Redo', () => restore(future, past), 'btn ghost'),
+  button('Reset', () => void resetToSource(), 'btn ghost'),
+);
+
+// Hidden picker, same validated path as the drop target. Kept in the DOM: a detached
+// input does not open a picker in every browser.
+const fileInput = el('input');
+fileInput.type = 'file';
+fileInput.accept = 'application/json,.json';
+fileInput.hidden = true;
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  fileInput.value = ''; // so picking the same file twice still fires change
+  if (!file) return;
+  void readKeymapFile(file).then((loaded) => {
+    if (!loaded) {
+      status(`${file.name} is not a valid keymap.json`, 'err');
+      return;
+    }
+    adopt(loaded, 'local-file', `local file — ${file.name}, not saved anywhere yet`);
+    status(`imported ${file.name}`);
+  });
+});
 
 const exportGroup = el('div', 'tb-group');
 exportGroup.append(
+  fileInput,
+  button('Import', () => fileInput.click(), 'btn ghost'),
   button('Share', async () => {
     const url = shareLink(km);
     try {
