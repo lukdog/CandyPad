@@ -27,6 +27,8 @@
 
   font-family: "Albert Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
+  /* Keycap legends only — the chrome around the pad stays Albert Sans. */
+  --legend: "Space Grotesk", "Albert Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -249,7 +251,7 @@ body {
 }
 .slot:hover { border-color: var(--lime); transform: translateY(-1px); }
 .slot:active { transform: translateY(1px); box-shadow: none; }
-.slot-label { font-size: 17px; font-weight: 600; line-height: 1.1; text-align: center; }
+.slot-label { font-family: var(--legend); font-size: 19px; font-weight: 500; line-height: 1.1; text-align: center; }
 .cap-hint { font-size: 9px; color: var(--dimmer); text-transform: uppercase; letter-spacing: 0.1em; }
 .slot.is-trans .slot-label { color: #5f5f5f; font-weight: 400; }
 .slot.is-no { background: #0f0f0f; }
