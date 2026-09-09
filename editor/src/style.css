@@ -299,7 +299,6 @@ body {
   font: inherit;
   cursor: pointer;
 }
-.dial-btn .eyebrow { font-size: 7px; letter-spacing: 0.16em; }
 .dial-ccw { left: 0; }
 .dial-cw { right: 0; }
 .dial-btn:hover, .dial-btn:focus-visible { color: var(--fg); background: rgb(255 255 255 / 4%); }
