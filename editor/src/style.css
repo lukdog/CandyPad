@@ -740,3 +740,66 @@ body {
   .pad-card { padding: 18px; }
   .pad-wrap { padding: 28px 4px 24px; }
 }
+
+/* ── About: static SEO/first-visit prose, not app chrome ─────────────
+   Deliberately quieter than the editor above it — supporting content, and the
+   only thing in the raw HTML that explains the tool to a crawler or a cold
+   visitor. Its h1 is the page's only one. */
+#about {
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  padding: 56px 32px 72px;
+}
+
+.about-inner {
+  max-width: 68ch;
+  margin: 0 auto;
+  color: var(--dim);
+}
+
+.about-inner h1 {
+  margin: 0 0 18px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--fg);
+  text-wrap: balance;
+}
+
+.about-inner h2 {
+  margin: 34px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+
+.about-inner p { margin: 0 0 14px; line-height: 1.65; }
+.about-inner ul, .about-inner ol { margin: 0 0 14px; padding-left: 22px; line-height: 1.65; }
+.about-inner li { margin-bottom: 7px; }
+.about-inner li::marker { color: var(--dimmer); }
+.about-inner strong { color: var(--fg); font-weight: 600; }
+
+.about-inner code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.about-inner a { color: var(--lime); text-decoration-color: rgb(147 248 89 / 40%); }
+.about-inner a:hover { text-decoration-color: var(--lime); }
+
+.about-foot {
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--dimmer);
+}
