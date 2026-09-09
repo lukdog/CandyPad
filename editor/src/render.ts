@@ -27,15 +27,15 @@ const cellKey = (w: Issue['where']): string =>
   w?.key !== undefined ? `k${w.layer}:${w.key}` : `e${w?.layer}:${w?.enc}:${w?.dir}`;
 
 const NS = 'http://www.w3.org/2000/svg';
-const VIEWBOX = '0 0 132 132';
-/** Arcs of the circle the knob turns on: r=48 about (66,66) of a 132 square. */
+/** The ring sits high in the box, not centred: the assignment labels need the bottom third.
+ *  Circle is r=42 about (66,58) of a 132 square, each arc a 100° sweep with clear gaps at
+ *  top and bottom so the two read as two marks rather than one broken ring. */
 const ARC = {
-  ccw: 'M 26 92 A 48 48 0 0 1 26 40',
-  cw: 'M 106 40 A 48 48 0 0 1 106 92',
-  track: 'M 66 18 A 48 48 0 1 1 65.9 18',
+  ccw: 'M 39 90.2 A 42 42 0 0 1 39 25.8',
+  cw: 'M 93 25.8 A 42 42 0 0 1 93 90.2',
 } as const;
-// Each arc button owns the 42% slice of the square it sits in; same aspect, so nothing letterboxes.
-const HALF_VIEWBOX = { ccw: '0 0 55.4 132', cw: '76.6 0 55.4 132' } as const;
+/** Each button owns half the square and draws its own arc in the matching viewBox slice. */
+const HALF_VIEWBOX = { ccw: '0 0 66 132', cw: '66 0 66 132' } as const;
 
 function arcSvg(viewBox: string, d: string, cls: string): SVGSVGElement {
   const svg = document.createElementNS(NS, 'svg');
@@ -46,13 +46,6 @@ function arcSvg(viewBox: string, d: string, cls: string): SVGSVGElement {
   path.setAttribute('d', d);
   svg.appendChild(path);
   return svg;
-}
-
-function eyebrow(text: string): HTMLElement {
-  const s = document.createElement('span');
-  s.className = 'dial-eyebrow';
-  s.textContent = text;
-  return s;
 }
 
 export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIndex, onPick: (t: Target) => void): Pad {
@@ -90,7 +83,6 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
       const dial = document.createElement('div');
       dial.className = 'dial';
       place(dial, entry.x, entry.y, entry.w, entry.h);
-      dial.appendChild(arcSvg(VIEWBOX, ARC.track, 'dial-track'));
 
       const add = (el: HTMLElement, text: HTMLElement, make: (layer: number) => Target) => {
         const slot: Slot = { el, target: null, make };
@@ -104,12 +96,12 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
         const b = document.createElement('button');
         b.className = `dial-btn dial-${dir}`;
         b.setAttribute('aria-label', `knob ${enc} ${dir === 'ccw' ? 'counter-clockwise' : 'clockwise'}`);
+        // No direction glyph in the label: at 41px per half it ellipsised the assignment,
+        // which matters more. Left arc is ccw, right is cw; the tooltip and the panel
+        // heading ("knob 0 ccw") carry it for certainty.
         const val = document.createElement('span');
         val.className = 'dial-val';
-        // The half viewBox is what lets a button-sized box hold its own full-circle arc.
-        // The eyebrow matches the centre cap's "press": without it, nothing but left/right
-        // position says which arc is which direction.
-        b.append(arcSvg(HALF_VIEWBOX[dir], ARC[dir], 'dial-arc'), eyebrow(dir), val);
+        b.append(arcSvg(HALF_VIEWBOX[dir], ARC[dir], 'dial-arc'), val);
         add(b, val, (layer) => ({ kind: 'enc', layer, enc, dir }));
       }
 
@@ -118,7 +110,9 @@ export function createPad(kb: KeyboardJson, layoutName: string, index: KeycodeIn
       press.className = 'dial-press';
       const pressText = document.createElement('span');
       pressText.className = 'slot-label';
-      press.append(eyebrow('press'), pressText);
+      // No "press" eyebrow: the disc in the middle of a knob needs no label to be read as
+      // the press target, and a fourth row of text is what made the dial look cluttered.
+      press.append(pressText);
       add(press, pressText, (layer) => ({ kind: 'key', layer, index: i }));
 
       root.appendChild(dial);
