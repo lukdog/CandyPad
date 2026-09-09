@@ -189,7 +189,31 @@ editor, check `git status`.
 - **KISS:** simplest thing that works. No abstractions, options or config before they are
   needed.
 - **Deps:** do not add or bump without strong reason. The editor has zero runtime deps.
-- **Commits:** explain *why*, especially when the change encodes a QMK gotcha.
+- **Commits:** explain *why*, especially when the change encodes a QMK gotcha. Subject in
+  the imperative, area-prefixed where it helps (`Editor:`, `CI:`, `README:`); body wrapped
+  at ~85 columns with the reasoning and the numbers, not a list of the diff.
+
+## Git workflow
+
+Agents commit here without being asked each time. That is the working agreement, and it
+only holds because the rest of it does:
+
+- **Work on a branch, never straight on `main` for anything non-trivial.** `waveN-<area>`
+  when it is one lane of a parallel wave (`wave6-ui`, `wave7-feat`), a descriptive slug
+  otherwise. Meta commits that only touch `CLAUDE.md` or the agent configuration go on
+  `main` directly.
+- **Merge with `--no-ff`.** The merge commit is the record that a lane existed and what it
+  contained; a fast-forward erases it.
+- **Author is the user; agent work carries the `Co-Authored-By: Claude …` trailer.** That
+  is what makes `git log --format='%(trailers)'` a usable audit of what an agent wrote.
+- **Commit only verified work.** `tsc --noEmit`, the build, and the validator against both
+  fixtures for editor changes; a green CI run for firmware. Never commit a change whose
+  claim you have not actually observed, and say plainly in the report what is unverified.
+- **Pushing is not implied by committing.** `push` runs CI, deploys Pages from `main`, and
+  is visible to anyone watching the repo — ask, unless the user asked for the run. Local
+  commits and merges are cheap to undo; a deploy is not.
+- **Parallel agents get separate worktrees and disjoint file ownership**, per
+  `.claude/agents/*.md`. Two agents in one tree is how you get a merge nobody planned.
 
 ---
 
