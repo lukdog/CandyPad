@@ -226,10 +226,12 @@ body {
   box-shadow: 0 0 0 2px var(--panel);
 }
 
-.pad-wrap { display: flex; justify-content: center; padding: 44px 0 36px; }
+/* Centred by auto margins rather than flex: below ~720px the pad is wider than the
+   card, and a centring flex container makes that overflow unreachable. */
+.pad-wrap { padding: 44px 4px 36px; overflow-x: auto; }
 
 /* ── the pad ─────────────────────────────────────────── */
-.pad { position: relative; }
+.pad { position: relative; margin: 0 auto; }
 
 .slot {
   position: absolute;
@@ -698,5 +700,5 @@ body {
   .tb-actions { margin-left: 0; gap: 10px; }
   .tb-group + .tb-group { padding-left: 10px; }
   .pad-card { padding: 18px; }
-  .pad-wrap { padding: 28px 0 24px; }
+  .pad-wrap { padding: 28px 4px 24px; }
 }
