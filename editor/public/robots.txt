@@ -1,0 +1,8 @@
+# Only honoured at a domain root. This site is a GitHub Pages project page served
+# from https://lukdog.com/CandyPad/, so the authoritative robots.txt is the one at
+# https://lukdog.com/robots.txt, owned by the user-pages repo — not this file.
+# Kept so the intent is recorded, and in case the editor ever moves to its own host.
+User-agent: *
+Allow: /
+
+Sitemap: https://lukdog.com/CandyPad/sitemap.xml

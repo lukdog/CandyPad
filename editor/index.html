@@ -4,7 +4,32 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <title>CandyPad Keymap Editor</title>
+    <meta name="theme-color" content="#090909" />
+
+    <title>CandyPad Keymap Editor · QMK macropad configurator</title>
+    <meta
+      name="description"
+      content="Visual QMK keymap editor for the binepad CandyPad macropad. Assign any keycode, including modifier combos like LCTL(KC_LEFT), validate the keymap, and save keymap.json straight into your clone."
+    />
+    <meta name="author" content="Luca Doglione" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://lukdog.com/CandyPad/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CandyPad Keymap Editor" />
+    <meta property="og:url" content="https://lukdog.com/CandyPad/" />
+    <meta property="og:title" content="CandyPad Keymap Editor · QMK macropad configurator" />
+    <meta
+      property="og:description"
+      content="Assign any QMK keycode to your binepad CandyPad, including modifier combos the vendor configurator cannot express. Validates the keymap before you build it."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CandyPad Keymap Editor · QMK macropad configurator" />
+    <meta
+      name="twitter:description"
+      content="Assign any QMK keycode to your binepad CandyPad, including modifier combos the vendor configurator cannot express."
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,6 +37,37 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/src/style.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "CandyPad Keymap Editor",
+        "alternateName": "CandyPad QMK configurator",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web browser (Chrome or Edge for direct save)",
+        "url": "https://lukdog.com/CandyPad/",
+        "codeRepository": "https://github.com/lukdog/CandyPad",
+        "isAccessibleForFree": true,
+        "license": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html",
+        "description": "A visual keymap editor for the binepad CandyPad macropad. It edits QMK's keymap.json directly, accepts any expression valid inside the LAYOUT() macro including nested modifiers such as LCTL(LSFT(KC_TAB)), and validates the keymap for unreachable layers and keycodes whose feature is disabled before the firmware is built.",
+        "featureList": [
+          "Assign modified and nested keycodes such as LCTL(KC_LEFT) and LCTL(LSFT(KC_TAB))",
+          "Task-organised keycode picker over the full QMK keycode table",
+          "Validation for unreachable layers, disabled features and encoder/layer count mismatches",
+          "Per-layer rotary encoder assignments for counter-clockwise, press and clockwise",
+          "Writes keymap.json and config.h into a local clone via the File System Access API",
+          "Share a keymap as a link with no account or token"
+        ],
+        "author": { "@type": "Person", "name": "Luca Doglione" },
+        "about": {
+          "@type": "Product",
+          "name": "binepad CandyPad",
+          "description": "A 19-key QMK macropad with two rotary encoders and a 128x32 OLED, built on an STM32F103.",
+          "url": "https://binepad.com/products/candypad"
+        }
+      }
+    </script>
   </head>
   <body>
     <header id="topbar"></header>
@@ -20,6 +76,63 @@
       <aside id="side"></aside>
     </main>
     <div id="status" role="status"></div>
+
+    <!-- Static prose, not filled in by JS: #app is empty in the raw HTML, and most
+         crawlers that matter here - including the LLM ones - do not execute JavaScript.
+         It is also the only thing on the page that tells a cold visitor what a CandyPad is. -->
+    <footer id="about">
+      <div class="about-inner">
+        <h1>CandyPad Keymap Editor</h1>
+        <p>
+          A visual keymap editor for the <strong>binepad CandyPad</strong> — a 19-key QMK macropad
+          with two rotary encoders and a 128×32 OLED, built on an STM32F103. It edits QMK's
+          <code>keymap.json</code> directly in your browser and can write it straight back into a
+          local clone of your firmware repository.
+        </p>
+
+        <h2>Why it exists</h2>
+        <p>
+          The vendor's own web configurator cannot express modified keycodes — there is no way to
+          put <code>LCTL(KC_LEFT)</code> on a key. It also shipped firmware with real defects: layers
+          that no key could reach, and mouse keycodes assigned while the mousekey feature was
+          switched off, so those keys compiled and silently did nothing. This editor accepts any
+          expression valid inside QMK's <code>LAYOUT()</code> macro, and validates the keymap before
+          you spend four minutes building it.
+        </p>
+
+        <h2>What it does</h2>
+        <ul>
+          <li>Assign any keycode, including nested modifiers such as <code>LCTL(LSFT(KC_TAB))</code>.</li>
+          <li>Browse the full QMK keycode table through task categories rather than QMK's internal groups.</li>
+          <li>Set all three rotary encoder actions per layer — counter-clockwise, press, clockwise.</li>
+          <li>
+            Catch unreachable layers, keycodes whose feature is disabled, keycodes the hardware
+            cannot do, and encoder/layer count mismatches that would otherwise fail a
+            <code>STATIC_ASSERT</code> at compile time.
+          </li>
+          <li>Edit the OLED brightness, timeout and custom render code that ship in <code>config.h</code> and <code>oled.c</code>.</li>
+          <li>Save into a local clone, download the JSON, or share a keymap as a link — no account, no token.</li>
+        </ul>
+
+        <h2>How to use it with your own CandyPad</h2>
+        <ol>
+          <li>Fork and clone <a href="https://github.com/lukdog/CandyPad" rel="noopener noreferrer">the repository</a>.</li>
+          <li>Open this page, choose <strong>Link repo…</strong> and pick your clone's root folder (Chrome or Edge).</li>
+          <li>Edit keys and knobs, then <strong>Save to repo</strong>.</li>
+          <li>Commit and push — GitHub Actions builds the firmware and attaches the <code>.bin</code> to the run.</li>
+          <li>
+            Flash it with <code>dfu-util -d 1EAF:0003 -a 2 -R -D &lt;firmware&gt;.bin</code> or QMK
+            Toolbox. This board uses the stm32duino bootloader, not the STM32 ROM DFU.
+          </li>
+        </ol>
+
+        <p class="about-foot">
+          Free and open source under the GPL-2.0-or-later, like QMK itself.
+          <a href="https://github.com/lukdog/CandyPad" rel="noopener noreferrer">Source on GitHub</a>.
+        </p>
+      </div>
+    </footer>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
