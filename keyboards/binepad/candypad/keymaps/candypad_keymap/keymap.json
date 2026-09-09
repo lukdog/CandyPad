@@ -29,7 +29,7 @@
             "LCTL(LGUI(KC_SPACE))",
             "LGUI(KC_F11)",
             "LSFT(LGUI(KC_Z))",
-            "LGUI(KC_MINUS)",
+            "LGUI(KC_KP_MINUS)",
             "KC_NO",
             "LCTL(LGUI(KC_Q))"
         ],
