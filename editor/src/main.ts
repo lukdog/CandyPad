@@ -34,6 +34,11 @@ let layer = 0;
 let selected: Target | null = null;
 let issues: Issue[] = [];
 
+/** No autosave until loadInitial resolves. It awaits readFromRepo() before reading the
+ *  draft, so the immediate first paint would otherwise overwrite the draft it is about to
+ *  read - which silently broke restore-after-reload entirely. */
+let booted = false;
+
 const past: string[] = [];
 const future: string[] = [];
 let coalesceKey = '';
@@ -212,7 +217,7 @@ function refresh() {
   tabs.paint(km.layers.length, layer, issues);
   renderIssues();
   if (!issues.some((i) => i.severity === 'error')) saveAnyway.hidden = true;
-  autosave(km);
+  if (booted) autosave(km);
 }
 
 // ── top bar ──────────────────────────────────────────────
@@ -458,6 +463,7 @@ addEventListener('hashchange', () => {
 
 loadInitial(bundled)
   .then((loaded) => {
+    booted = true;
     km = loaded.km;
     layer = 0;
     // Show what config.h actually holds, not our defaults, or the panel would quietly
@@ -468,6 +474,7 @@ loadInitial(bundled)
     refresh();
   })
   .catch((e) => {
+    booted = true;
     setSource('bundled', `bundled snapshot @ ${__COMMIT__}`);
     status(`could not restore: ${String(e)}`, 'err');
     refresh();
