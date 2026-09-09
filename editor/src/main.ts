@@ -7,7 +7,7 @@ import { createPanel } from './panel';
 import {
   LINKED_REPO_LABEL, autosave, downloadKeymap, fsaAvailable, loadInitial, onDropFile,
   pickRepoDir, readFromRepo, repoLinked, shareLink, writeToRepo,
-  type LoadSource, type OledSettings,
+  type LoadSource, type OledSettings, type RepoState,
 } from './persist';
 import { createEncoderLegend, createLayerTabs, createPad } from './render';
 import type { Issue, KeyboardJson, KeymapJson, Target } from './types';
@@ -138,10 +138,20 @@ const tabs = createLayerTabs({
 });
 
 const sourceBadge = el('span', 'badge', 'loading…');
+let source: LoadSource = 'bundled';
+let sourceLabel = '';
 
-function setSource(source: LoadSource, label: string) {
+function setSource(next: LoadSource, label: string) {
+  source = next;
+  sourceLabel = label;
   sourceBadge.textContent = label;
-  sourceBadge.dataset['source'] = source;
+  sourceBadge.dataset['source'] = next;
+}
+
+/** True when what is on screen exists nowhere but this tab. A shared link is the sharp case:
+ *  loadInitial already consumed the fragment from the URL, so discarding it loses it for good. */
+function isUnsaved(): boolean {
+  return source === 'shared-link' || source === 'local-file' || source === 'autosave' || past.length > 0;
 }
 
 const statusLine = document.querySelector<HTMLElement>('#status')!;
@@ -238,13 +248,37 @@ function writtenFiles(): string {
   return oledCode.trim() ? 'keymap.json + config.h + oled.c + rules.mk' : 'keymap.json + config.h';
 }
 
-/** Linking a clone must show that clone, not the snapshot the page booted with. */
-async function adoptRepo(): Promise<void> {
+/** Linking a clone shows that clone — but only when nothing unsaved would be thrown away.
+ *  Arriving via a share link and then linking a repo must not silently drop the shared
+ *  keymap: the fragment is already consumed, and the adopt would overwrite the draft too. */
+async function linkRepo(): Promise<void> {
+  if (!(await pickRepoDir())) {
+    status('not linked', 'err');
+    return;
+  }
   const repo = await readFromRepo();
   if (!repo) {
     status('repo linked, but its keymap.json could not be read', 'err');
     return;
   }
+  const differs = JSON.stringify(repo.km) !== JSON.stringify(km);
+  if (differs && isUnsaved()) {
+    const keep = window.confirm(
+      `Keep the keymap that is on screen?\n\n` +
+        `It came from "${sourceLabel}" and is not saved anywhere yet, and your clone holds a ` +
+        `different keymap.json.\n\n` +
+        `OK — keep this one; "Save to repo" will write it into the clone.\n` +
+        `Cancel — discard it and load the clone's keymap instead.`,
+    );
+    if (keep) {
+      status('repo linked — "Save to repo" will write what is on screen into your clone');
+      return; // write target set, content untouched
+    }
+  }
+  adoptRepo(repo);
+}
+
+function adoptRepo(repo: RepoState): void {
   snapshot(''); // before anything is replaced: undo must be able to bring the old work back
   km = repo.km;
   oled = repo.oled;
@@ -369,10 +403,7 @@ const repoGroup = el('div', 'tb-group');
 if (fsaAvailable()) {
   repoGroup.append(
     settingsBtn,
-    button('Link repo…', async () => {
-      if (await pickRepoDir()) await adoptRepo();
-      else status('not linked', 'err');
-    }),
+    button('Link repo…', () => void linkRepo()),
     button('Save to repo', () => void save(), 'btn primary'),
     saveAnyway,
   );
